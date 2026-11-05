@@ -1,0 +1,32 @@
+# UTF-8
+#
+# VSVersionInfo for ChunkCarve executable
+#
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1, 0, 0, 0),
+    prodvers=(1, 0, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          u'040904B0',
+          [StringStruct(u'CompanyName', u'ChunkCarve Contributors'),
+           StringStruct(u'FileDescription', u'ChunkCarve · 取方'),
+           StringStruct(u'FileVersion', u'1.0.0.0'),
+           StringStruct(u'InternalName', u'ChunkCarve'),
+           StringStruct(u'LegalCopyright', u'Copyright (c) 2026 ChunkCarve Contributors. MIT License.'),
+           StringStruct(u'OriginalFilename', u'ChunkCarve.exe'),
+           StringStruct(u'ProductName', u'ChunkCarve'),
+           StringStruct(u'ProductVersion', u'1.0.0.0')])
+      ]),
+    VarFileInfo([VarStruct(u'Translation', [2052, 1200, 1033, 1200])])
+  ]
+)

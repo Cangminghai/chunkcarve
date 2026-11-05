@@ -1,0 +1,4 @@
+# 开发/测试依赖（CI 用；不含 pywebview，避免 Linux 上拉 GTK 依赖）
+numpy>=1.26
+Pillow>=10.0
+pytest>=8.0

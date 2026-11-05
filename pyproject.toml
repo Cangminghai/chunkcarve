@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chunkcarve"
+version = "1.0.0"
+description = "ChunkCarve (取方): Minecraft world selection and 3D voxel preview"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "ChunkCarve contributors" }
+]
+keywords = [
+    "minecraft",
+    "voxel",
+    "3d-printing",
+    "deepslate",
+    "gltf",
+    "3mf",
+    "stl"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Games/Entertainment",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "numpy>=1.24.0",
+    "Pillow>=10.0.0",
+    "manifold3d>=3.5.4",
+]
+
+[project.optional-dependencies]
+gui = [
+    "pywebview>=4.0.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pyinstaller>=6.0",
+]
+
+[project.scripts]
+chunkcarve = "mcmap.server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mcmap*"]
+
+[tool.setuptools.package-data]
+"*" = ["web/**/*", "assets/**/*"]

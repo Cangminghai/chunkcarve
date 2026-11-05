@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="logoGrass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80" />
+      <stop offset="100%" stop-color="#16a34a" />
+    </linearGradient>
+    <linearGradient id="logoLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#92623e" />
+      <stop offset="100%" stop-color="#5c3a21" />
+    </linearGradient>
+    <linearGradient id="logoRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#784f30" />
+      <stop offset="100%" stop-color="#422613" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+
+  <!-- 左侧立体体素切片图标 (缩放并居中在 240x240 内) -->
+  <g transform="translate(20, -10) scale(0.48)">
+    <polygon points="256,290 88,193 88,340 256,437" fill="url(#logoLeft)" />
+    <polygon points="256,290 424,193 424,340 256,437" fill="url(#logoRight)" />
+    <polygon points="256,260 96,168 256,76 416,168" fill="url(#accentGrad)" opacity="0.9" />
+    <polygon points="256,274 96,182 96,168 256,260" fill="#38bdf8" />
+    <polygon points="256,274 416,182 416,168 256,260" fill="#0284c7" />
+    <polygon points="256,242 104,154 104,204 256,292" fill="url(#logoLeft)" />
+    <polygon points="256,242 408,154 408,204 256,292" fill="url(#logoRight)" />
+    <polygon points="256,66 408,154 256,242 104,154" fill="url(#logoGrass)" stroke="#86efac" stroke-width="2" />
+  </g>
+
+  <!-- 右侧品牌文字排版 -->
+  <g transform="translate(250, 48)">
+    <!-- 标题 ChunkCarve -->
+    <text x="0" y="78" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="82" font-weight="800" fill="#0f172a" letter-spacing="-1.5">
+      ChunkCarve
+    </text>
+
+    <!-- 版本 / 状态徽标小胶囊 -->
+    <rect x="236" y="24" width="76" height="26" rx="13" fill="#e0f2fe" />
+    <text x="274" y="42" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#0284c7" text-anchor="middle">v1.0.0</text>
+
+    <!-- 副标题 Slogan (中英双语 / 专业定位) -->
+    <text x="2" y="118" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="20" font-weight="600" fill="#334155">
+      取方 · 三千方块，取其一方。
+    </text>
+    <text x="2" y="144" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="400" fill="#64748b" letter-spacing="0.2">
+      Carve one chunk out of the world.
+    </text>
+  </g>
+</svg>

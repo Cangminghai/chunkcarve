@@ -1,0 +1,58 @@
+# 私有/机器配置与导出目录
+data/
+out/
+image/
+config.json
+projects.json
+desktop_error.log
+result.json
+*.log
+.env
+.env.*
+!.env.example
+测试导出位置/
+*测试存档*
+
+# Python 缓存与构建产物
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+.venv/
+node_modules/
+venv/
+env/
+ENV/
+build/
+dist/
+releases/
+*.zip
+*.tar.gz
+
+# IDE 与编辑器配置
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# spec 产物（保留核心打包配置）
+*.spec
+!mc3d.spec
+!MC3d.spec
+!ChunkCarve.spec
+
+# 临时图像与截屏
+temp_*.png
+temp_*.jpg
+temp_crop.png
+shot_*.png
+shot_*.jpg
+*.tmp
+
+# 系统文件
+Thumbs.db
+.DS_Store

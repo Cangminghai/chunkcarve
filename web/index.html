@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ChunkCarve · 取方</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="booting" data-step="selection">
+
+<!-- 开屏启动动画 (置于最顶层优先渲染，避免底层元素首帧闪烁) -->
+<div id="splashScreen" class="splash-overlay">
+  <div class="splash-card">
+    <div class="splash-cube-wrap">
+      <div class="splash-cube">
+        <div class="splash-face front"></div>
+        <div class="splash-face back"></div>
+        <div class="splash-face right"></div>
+        <div class="splash-face left"></div>
+        <div class="splash-face top"></div>
+        <div class="splash-face bottom"></div>
+      </div>
+      <div class="splash-shadow"></div>
+    </div>
+    <div class="splash-brand">
+      <div class="splash-logo splash-title">ChunkCarve</div>
+      <div class="splash-tagline">取方 · 三千方块，取其一方。</div>
+      <div class="splash-tagline">Carve one chunk out of the world.</div>
+      <div class="splash-version">v1.0.0 · Open Source Release</div>
+    </div>
+    <div class="splash-meter">
+      <div class="splash-track">
+        <div class="splash-bar" id="splashFill"></div>
+      </div>
+      <div class="splash-status" id="splashStatus">正在启动图形渲染引擎...</div>
+    </div>
+    <div class="splash-skip" id="splashSkip">按任意键或点击跳过</div>
+  </div>
+</div>
+
+<div id="stage">
+  <canvas id="cv2d"></canvas>
+  <div id="wrap3d">
+    <canvas id="cv3d"></canvas>
+    <canvas id="ov3d"></canvas>
+    <div id="empty3d">
+      <span data-icon="layers" data-icon-size="28"></span>
+      <span>先在俯视图中框选区块，再切回 2.5D 查看立体效果</span>
+    </div>
+  </div>
+  <aside id="sliceSidebar" class="floating-card" aria-label="切片选择">
+    <div class="slice-sidebar-heading"><strong>切片选择</strong><span id="sliceSelectionCount" role="status">尚未生成</span></div>
+    <div class="slice-gap-control">
+      <label for="sliceGapNumber">预览间距 <span>mm</span></label>
+      <input id="sliceGapNumber" class="num" type="number" min="0" max="20" step="0.1" value="2" aria-label="片间距毫米">
+      <input id="sliceGap" type="range" min="0" max="20" step="0.1" value="2" aria-label="预览片间距">
+    </div>
+    <span id="sliceCount" role="status">选择方向，生成切片预览</span>
+    <div class="seg" id="sliceSelectionMode" aria-label="选片方式">
+      <button data-mode="single" class="on" aria-pressed="true" type="button">单选</button>
+      <button data-mode="multi" aria-pressed="false" type="button">多选</button>
+    </div>
+    <div class="slice-selection-actions">
+      <button id="btnSliceShowAll" class="btn btn-secondary btn-sm" type="button" disabled>显示全部</button>
+      <button id="btnSlicePreviewReset" class="btn btn-ghost btn-sm" type="button" hidden>还原整体</button>
+      <button id="btnSliceSelectAll" class="btn btn-ghost btn-sm" type="button" hidden>全选</button>
+      <button id="btnSliceSelectNone" class="btn btn-ghost btn-sm" type="button" hidden>清空</button>
+    </div>
+    <p id="sliceListHint">生成切片后，在这里选择要查看的切片。</p>
+    <div id="sliceList" role="group" aria-label="切片列表"></div>
+    <div id="sliceStatus" class="slice-status" role="status" style="display:none;"></div>
+  </aside>
+</div>
+
+<header id="bar">
+  <button id="btnHome" class="btn btn-ghost home-btn" title="返回项目中心 / 打开其他项目">
+    <span data-icon="home" data-icon-size="16"></span>
+    <span>项目中心</span>
+  </button>
+
+  <div class="brand menu-wrap" id="worldWrap">
+    <span class="dot"></span>
+    <span id="worldName" title="点击切换存档">存档观察器</span>
+    <span class="caret" data-icon="chevron-down" data-icon-size="14"></span>
+    <div class="menu" id="worldMenu"></div>
+  </div>
+
+  <nav class="seg workflow-steps" id="viewSeg" aria-label="打印工作流程">
+    <button data-step="selection" data-view="2d" class="on" aria-current="step">1 选区</button>
+    <button data-step="preview" data-view="3d">2 预览</button>
+    <button data-step="slices">3 切片</button>
+  </nav>
+
+  <div class="seg" id="mode3dSeg">
+    <button data-mode3d="solid" title="纯材质渲染">材质</button>
+    <button data-mode3d="grid" class="on" title="网格叠加（快捷键 G）">网格</button>
+  </div>
+
+  <div class="seg" id="layerSeg">
+    <button data-layer="terrain" class="on">地形</button>
+    <button data-layer="height">高度</button>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="btn-group">
+    <button id="btnSpawn" class="btn btn-secondary btn-icon" title="移动到出生点" aria-label="移动到出生点">
+      <span data-icon="crosshair" data-icon-size="16"></span>
+    </button>
+    <button id="btnFitSel" class="btn btn-secondary btn-icon" disabled title="适配当前选区" aria-label="适配当前选区">
+      <span data-icon="maximize" data-icon-size="16"></span>
+    </button>
+    <button id="btnReset3d" class="btn btn-secondary btn-icon" title="复位 2.5D 视角（快捷键 R）" aria-label="复位 2.5D 视角">
+      <span data-icon="rotate-ccw" data-icon-size="16"></span>
+    </button>
+  </div>
+
+  <div class="menu-wrap" id="presetWrap">
+    <button id="btnPreset" class="btn btn-secondary" title="保存/加载选区预设">
+      <span data-icon="bookmark" data-icon-size="16"></span>
+      <span>预设</span>
+    </button>
+    <div class="menu" id="presetMenu">
+      <div class="preset-save">
+        <input id="presetName" placeholder="预设名" class="preset-input">
+        <button id="btnPresetSave" class="btn btn-secondary btn-sm"><span data-icon="save" data-icon-size="16"></span><span>保存</span></button>
+      </div>
+      <div id="presetList"></div>
+    </div>
+  </div>
+
+  <div class="menu-wrap" id="exportWrap">
+    <button id="btnExport" class="btn btn-primary" title="导出模型">
+      <span data-icon="download" data-icon-size="16"></span>
+      <span>导出</span>
+    </button>
+    <div class="menu export-settings" id="exportMenu" aria-label="导出设置">
+      <strong id="exportTitle">导出当前模型</strong>
+      <label class="field">格式<select id="sliceFormat">
+        <option value="glb" selected>GLB · 内嵌贴图（默认）</option>
+        <option value="obj">OBJ · 材质与贴图</option>
+        <option value="3mf">3MF · AMS 多色</option>
+        <option value="stl">STL · 单色</option>
+      </select></label>
+      <label class="field" id="sliceColorsField" hidden>AMS 色数<select id="sliceColors"><option value="4">4 色</option><option value="8">8 色</option></select></label>
+      <label class="field" id="sliceExportModeField" hidden>范围<select id="sliceExportMode"><option value="batch">全部切片</option><option value="single">当前单片</option><option value="selected">右侧所选切片</option></select></label>
+      <div id="decorationExportField">
+        <label class="slice-check"><input id="includeDecorations" type="checkbox" checked> 交叉面／贴图装饰（草、火把等）</label>
+        <p class="workflow-hint">默认包含；取消勾选可从预览和导出中排除。装饰会生成有厚度的可见轮廓，文件会明显增大；楼梯、台阶和栅栏始终保留。</p>
+      </div>
+      <p id="sliceFormatHint" class="workflow-hint">GLB 将模型和贴图放在同一文件中。</p>
+      <button id="btnSliceExport" class="btn btn-primary" type="button">导出模型</button>
+      <div id="exportStatus" class="slice-status" role="status" style="display:none;"></div>
+      <div id="sliceResult" class="slice-result" style="display:none;"></div>
+    </div>
+  </div>
+</header>
+
+<aside id="panel" class="floating-card">
+  <div class="panel-head">
+    <div class="panel-title">
+      <span data-icon="info" data-icon-size="14"></span>
+      <span>存档信息</span>
+    </div>
+    <button id="btnTogglePanel" class="btn btn-ghost btn-sm btn-icon" title="折叠/展开信息面板" aria-label="折叠/展开信息面板">
+      <span data-icon="chevron-down" data-icon-size="14"></span>
+    </button>
+  </div>
+  <div id="panelBody">
+    <div class="row"><span>版本</span><b id="iVer">—</b></div>
+    <div class="row"><span>种子</span><b id="iSeed" class="mono">—</b></div>
+    <div class="row"><span>出生点</span><b id="iSpawn" class="mono">—</b></div>
+    <div class="row"><span>区块</span><b id="iChunk" class="mono">—</b></div>
+    <div class="row"><span>视野</span><b id="iSpan" class="mono">—</b></div>
+  </div>
+</aside>
+
+<div id="hud" class="hud-pill">
+  <div><i>X</i><b id="hX">—</b></div>
+  <div class="hud-sep"></div>
+  <div><i>Z</i><b id="hZ">—</b></div>
+  <div class="hud-sep"></div>
+  <div><i>面</i><b id="hTri">—</b></div>
+</div>
+
+<footer id="selbar" class="floating-card">
+  <div id="dockSummary">
+    <span id="dockSelectionText">未选择</span>
+    <span id="dockSizeText" class="mono">—</span>
+    <button id="btnDockRange" class="btn btn-sm" type="button" aria-expanded="false" aria-controls="selInfo">
+      <span>范围与尺寸</span>
+      <span class="dock-range-chevron" data-icon="chevron-down" data-icon-size="14" aria-hidden="true"></span>
+    </button>
+  </div>
+  <div id="selInfo">
+    <!-- 第 1 列：选区统计 -->
+    <div class="dock-col dock-stats">
+      <div class="block">
+        <label>选区</label>
+        <div class="v mono" id="sChunks">未选择 · 使用当前视野</div>
+      </div>
+      <div class="block">
+        <label>世界坐标</label>
+        <div class="v mono" id="sCoords">—</div>
+      </div>
+      <div class="block">
+        <label id="sSizeLabel">成品尺寸</label>
+        <div class="v mono" id="sSize">—</div>
+      </div>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <!-- 第 2 列：范围编辑 Y/X/Z -->
+    <div class="dock-col dock-range">
+      <div class="range-row">
+        <span class="range-label">Y 高度</span>
+        <div class="range-inputs">
+          <div class="stepper">
+            <button type="button" class="step-btn step-dn" data-for="yBotIn" title="减少" aria-label="减少"><span data-icon="minus" data-icon-size="14"></span></button>
+            <input type="number" id="yBotIn" class="num" min="-64" max="319" step="1" placeholder="自动">
+            <button type="button" class="step-btn step-up" data-for="yBotIn" title="增加" aria-label="增加"><span data-icon="plus" data-icon-size="14"></span></button>
+          </div>
+          <span class="range-arrow" data-icon="arrowRight" data-icon-size="14"></span>
+          <div class="stepper">
+            <button type="button" class="step-btn step-dn" data-for="yTopIn" title="减少" aria-label="减少"><span data-icon="minus" data-icon-size="14"></span></button>
+            <input type="number" id="yTopIn" class="num" min="-64" max="319" step="1" placeholder="自动">
+            <button type="button" class="step-btn step-up" data-for="yTopIn" title="增加" aria-label="增加"><span data-icon="plus" data-icon-size="14"></span></button>
+          </div>
+        </div>
+      </div>
+      <div class="range-row" title="精确到方块的 X 范围（留空用区块选区）">
+        <span class="range-label">X 范围</span>
+        <div class="range-inputs">
+          <div class="stepper">
+            <button type="button" class="step-btn step-dn" data-for="x0In" title="减少" aria-label="减少"><span data-icon="minus" data-icon-size="14"></span></button>
+            <input type="number" id="x0In" class="num" step="1" placeholder="起">
+            <button type="button" class="step-btn step-up" data-for="x0In" title="增加" aria-label="增加"><span data-icon="plus" data-icon-size="14"></span></button>
+          </div>
+          <span class="range-arrow" data-icon="arrowRight" data-icon-size="14"></span>
+          <div class="stepper">
+            <button type="button" class="step-btn step-dn" data-for="x1In" title="减少" aria-label="减少"><span data-icon="minus" data-icon-size="14"></span></button>
+            <input type="number" id="x1In" class="num" step="1" placeholder="止">
+            <button type="button" class="step-btn step-up" data-for="x1In" title="增加" aria-label="增加"><span data-icon="plus" data-icon-size="14"></span></button>
+          </div>
+        </div>
+      </div>
+      <div class="range-row" title="精确到方块的 Z 范围（留空用区块选区）">
+        <span class="range-label">Z 范围</span>
+        <div class="range-inputs">
+          <div class="stepper">
+            <button type="button" class="step-btn step-dn" data-for="z0In" title="减少" aria-label="减少"><span data-icon="minus" data-icon-size="14"></span></button>
+            <input type="number" id="z0In" class="num" step="1" placeholder="起">
+            <button type="button" class="step-btn step-up" data-for="z0In" title="增加" aria-label="增加"><span data-icon="plus" data-icon-size="14"></span></button>
+          </div>
+          <span class="range-arrow" data-icon="arrowRight" data-icon-size="14"></span>
+          <div class="stepper">
+            <button type="button" class="step-btn step-dn" data-for="z1In" title="减少" aria-label="减少"><span data-icon="minus" data-icon-size="14"></span></button>
+            <input type="number" id="z1In" class="num" step="1" placeholder="止">
+            <button type="button" class="step-btn step-up" data-for="z1In" title="增加" aria-label="增加"><span data-icon="plus" data-icon-size="14"></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <!-- 第 3 列：打印比例与范围 -->
+    <div class="dock-col dock-actions">
+      <div class="actions-top-row">
+        <label class="field scale-field" title="每个 Minecraft 方块对应的打印边长">比例（mm/格）
+          <input id="scaleSel" class="num" type="number" min="0.01" step="0.1" value="2" aria-label="打印比例（mm/格）">
+        </label>
+        <button id="btnSliceClear" class="btn btn-ghost btn-sm" title="清除方块范围，恢复区块选区">
+          <span data-icon="rotate-ccw" data-icon-size="16"></span>
+          <span>清除范围</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <section id="slicePanel" class="workflow-panel" aria-label="切片工作台">
+    <div class="workflow-fields">
+      <div class="slice-direction">
+        <span>切片方向</span>
+        <input id="sliceAxis" type="hidden" value="y">
+        <div class="seg" id="sliceAxisSeg" aria-label="切片方向">
+          <button data-axis="y" class="on" aria-pressed="true">Y 水平横切</button>
+          <button data-axis="x" aria-pressed="false">X 侧向纵切</button>
+          <button data-axis="z" aria-pressed="false">Z 正向纵切</button>
+        </div>
+      </div>
+      <label class="field" title="每片模型的实际厚度，与方块边长分别设置">片厚（mm）<input id="sliceThickness" class="num" type="number" min="0.01" step="0.1" value="2"></label>
+      <label class="field" title="一个方块在切片平面上的实际边长">比例（mm/格）<input id="sliceScale" class="num" type="number" min="0.01" step="0.1" value="2"></label>
+      <label class="slice-check"><input id="sliceStand" type="checkbox"> 连接底座</label>
+      <button id="btnSliceBatch" class="btn btn-primary" type="button">生成切片预览</button>
+    </div>
+    <p id="sliceDimensionHint" class="workflow-hint">1 格边长 2 mm · 每片厚 2 mm</p>
+  </section>
+</footer>
+
+<dialog id="experimentalFeatureDialog" aria-labelledby="experimentalFeatureTitle">
+  <h2 id="experimentalFeatureTitle">切片功能正在试验阶段</h2>
+  <p>该功能目前正在试验阶段，暂未开放。</p>
+  <div class="experimental-dialog-actions">
+    <button id="btnExperimentalFeatureClose" class="btn btn-primary" type="button">知道了</button>
+  </div>
+</dialog>
+
+<div id="guideWrap" class="open">
+  <div id="guideCard" class="floating-card">
+    <div id="guide">
+      <div><kbd>拖拽</kbd> 平移视图</div>
+      <div><kbd>Shift+拖拽</kbd> 框选区块</div>
+      <div><kbd>单击</kbd> 选中区块</div>
+      <div><kbd>双击 / Esc</kbd> 取消选区</div>
+      <div><kbd>滚轮</kbd> 缩放</div>
+    </div>
+    <div id="guide3d">
+      <div><kbd>左键拖拽</kbd> 旋转</div>
+      <div><kbd>右键 / 中键</kbd> 平移</div>
+      <div><kbd>滚轮</kbd> 缩放（Shift 细调）</div>
+      <div><kbd>拖动红框手柄</kbd>：调整预览范围</div>
+      <div><kbd>R</kbd> 复位视角</div>
+      <div><kbd>双击</kbd> <span id="guideDoubleClickText">清除选区</span></div>
+    </div>
+  </div>
+  <button id="btnToggleGuide" class="btn btn-secondary btn-icon" title="快捷键操作指引" aria-label="快捷键操作指引" aria-expanded="true">
+    <span data-icon="keyboard" data-icon-size="16"></span>
+  </button>
+</div>
+
+<div id="minimap" class="floating-card">
+  <button id="btnMiniRestore" class="btn" type="button" title="展开地图" aria-label="展开地图" aria-expanded="false" aria-controls="cvMini">
+    <span data-icon="map" data-icon-size="20"></span>
+  </button>
+  <div class="mm-head">
+    <span class="mm-title">
+      <span data-icon="map" data-icon-size="14"></span>
+      <span>地图</span>
+    </span>
+    <div class="mm-controls">
+      <button id="btnMiniZoomIn" class="btn mm-button" type="button" title="放大地图" aria-label="放大地图"><span data-icon="plus" data-icon-size="16"></span></button>
+      <button id="btnMiniZoomOut" class="btn mm-button" type="button" title="缩小地图" aria-label="缩小地图"><span data-icon="minus" data-icon-size="16"></span></button>
+      <button id="btnMiniCollapse" class="btn mm-button" type="button" title="收起地图" aria-label="收起地图">
+        <span data-icon="chevron-down" data-icon-size="16"></span>
+      </button>
+    </div>
+  </div>
+  <canvas id="cvMini"></canvas>
+  <div class="mm-tip">支持滚轮缩放 · 鼠标拖拽框选</div>
+</div>
+
+<div id="loading">
+  <div class="load-card">
+    <div class="load-main">
+      <div class="spin"></div>
+      <span id="loadTxt">载入中</span>
+    </div>
+    <div id="loadTimeoutHint" class="load-timeout-hint" style="display: none;">
+      <div class="load-timeout-msg">可能是卡死了，请重新打开吧。</div>
+      <div class="load-timeout-actions">
+        <button type="button" class="btn-load-reload" onclick="location.reload()">重新载入</button>
+        <button type="button" class="btn-load-cancel" onclick="dismissLoading()">取消等待</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="errbar"></div>
+
+<!-- 项目中心 / 主页面 -->
+<div id="projectHub" class="hub-overlay">
+  <div class="hub-container">
+    <header class="hub-topbar">
+      <div class="hub-brand">
+        <div class="hub-cube-mini"></div>
+        <span class="hub-title">ChunkCarve</span>
+        <span class="hub-badge">取方</span>
+      </div>
+      <div class="hub-search">
+        <span data-icon="search" data-icon-size="18"></span>
+        <input type="text" id="hubSearchInp" placeholder="搜索项目名、存档或整合包...">
+      </div>
+      <div class="hub-top-actions">
+        <button id="btnNewProj" class="btn btn-primary"><span data-icon="plus" data-icon-size="14"></span><span>新建项目</span></button>
+        <button id="btnBackToViewer" class="btn btn-secondary"><span>进入观察器</span><span data-icon="arrowRight" data-icon-size="14"></span></button>
+      </div>
+    </header>
+
+    <div class="hub-content">
+      <section class="hub-main-col">
+        <div class="hub-heading">
+          <h2>我的项目 (<span id="hubProjCount">0</span>)</h2>
+          <span class="hub-subhead">选择项目将自动加载整合包并 3D 渲染出生点附近区块</span>
+        </div>
+        <div id="hubProjectGrid" class="hub-grid">
+          <!-- 动态项目卡片 -->
+        </div>
+      </section>
+
+      <aside class="hub-side-col">
+        <div class="hub-card">
+          <div class="hub-card-title">
+            <span data-icon="zap" data-icon-size="16"></span>
+            <span>本机探测到的整合包实例</span>
+          </div>
+          <p class="hub-card-desc">自动扫描 PCL、HMCL 及官方启动器目录，可直接一键创建对应项目：</p>
+          <div id="hubModpackList" class="hub-modpack-list">
+            <div class="hub-hint-loading">正在扫描本地实例...</div>
+          </div>
+        </div>
+
+        <div class="hub-card hub-info-card">
+          <div class="hub-card-title">
+            <span data-icon="lightbulb" data-icon-size="16"></span>
+            <span>使用指南</span>
+          </div>
+          <ul class="hub-guide-list">
+            <li><b>俯视选区</b>：打开项目后先进入平面地图，以世界出生点为中心自由框选范围。</li>
+            <li><b>立体预览</b>：确认选区后，点击顶部「2 预览」。修改范围后模型自动更新。</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<!-- 新建 / 编辑项目向导模态框 -->
+<div id="projModal" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="projModalTitle">新建项目</h3>
+      <button id="btnProjModalClose" class="btn btn-ghost btn-sm btn-icon modal-close-btn" title="关闭" aria-label="关闭"><span data-icon="x" data-icon-size="18"></span></button>
+    </div>
+    <div class="modal-body">
+      <!-- 步骤 1: 项目基本信息与整合包选择 -->
+      <div class="modal-section-title">
+        <span class="step-badge">1</span>
+        <span>项目基本信息与目录配置</span>
+      </div>
+      <div class="modal-field">
+        <label>项目名称</label>
+        <input type="text" id="modalProjName" placeholder="例如：主世界基地 3D 打印项目" class="modal-input">
+      </div>
+
+      <div class="modal-field">
+        <label>选择整合包 / 游戏目录</label>
+        <div class="modal-input-row">
+          <select id="modalModpackSelect" class="modal-select">
+            <option value="">-- 选择已探测到的整合包或手动指定 --</option>
+          </select>
+          <button id="btnBrowseModpack" class="btn btn-secondary btn-sm" type="button"><span data-icon="folder-open" data-icon-size="16"></span><span>浏览目录…</span></button>
+        </div>
+        <p id="modalBrowseError" class="modal-hint" role="alert" hidden></p>
+        <div class="modal-hint">可选择 PCL / HMCL / 官方启动器的 versions/&lt;整合包&gt; 或 .minecraft 目录</div>
+      </div>
+
+      <div class="modal-field" id="modalManualModpackRow" style="display:none;">
+        <label>自定义目录绝对路径</label>
+        <input type="text" id="modalModpackPath" placeholder="例如 D:\minecraft\.minecraft\versions\整合包名称" class="modal-input">
+      </div>
+
+      <!-- 步骤 2: 自动探测结果展示 -->
+      <div class="modal-detect-box" id="detectBox">
+        <div class="modal-detect-head">
+          <div class="detect-title-wrap">
+            <span class="step-badge">2</span>
+            <span>整合包环境自动探测</span>
+          </div>
+          <span id="detectBadge" class="badge">就绪</span>
+        </div>
+        <div class="modal-detect-pills">
+          <span class="pill" id="pillSaves"><span data-icon="folder" data-icon-size="14"></span>存档: 探测中...</span>
+          <span class="pill" id="pillJar"><span data-icon="package" data-icon-size="14"></span>版本核心: 探测中...</span>
+          <span class="pill" id="pillMods"><span data-icon="puzzle" data-icon-size="14"></span>模组: 探测中...</span>
+          <span class="pill" id="pillRps"><span data-icon="palette" data-icon-size="14"></span>材质包: 探测中...</span>
+        </div>
+        <p id="modalDetectHint" class="modal-hint" role="status" hidden></p>
+      </div>
+
+      <!-- 步骤 3: 存档选择列表 -->
+      <div class="modal-field">
+        <div class="modal-section-title">
+          <span class="step-badge">3</span>
+          <label>选择存档 (<span id="modalSavesCount">0</span> 个可用)</label>
+        </div>
+        <div class="modal-saves-grid" id="modalSavesList">
+          <div class="saves-empty-hint">请先选择整合包目录以探测存档</div>
+        </div>
+      </div>
+
+      <!-- 高级设置折叠 -->
+      <details class="modal-advanced">
+        <summary><span data-icon="chevron-right" data-icon-size="16"></span>高级选项（原版 Jar 与模组目录自定义覆盖）</summary>
+        <div class="modal-adv-content">
+          <div class="modal-field">
+            <label>原版版本 Jar（渲染贴图核心）</label>
+            <input type="text" id="modalJarPath" class="modal-input sm" placeholder="默认自动寻找同级或父级版本 jar">
+          </div>
+          <div class="modal-field">
+            <label>模组目录（mods/）</label>
+            <input type="text" id="modalModsPath" class="modal-input sm" placeholder="默认自动寻找 mods/ 文件夹">
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="modal-foot">
+      <button id="btnProjModalCancel" class="btn btn-secondary" type="button">取消</button>
+      <button id="btnProjModalSubmit" class="btn btn-primary" type="button">
+        <span data-icon="render" data-icon-size="17"></span>
+        <span>保存并开始渲染重生点</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- 居中通用确认 / 删除模态对话框 -->
+<div id="confirmModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+  <div class="modal-card confirm-modal-card">
+    <div class="modal-head confirm-modal-head">
+      <div class="confirm-head-left">
+        <div id="confirmModalIcon" class="confirm-icon-box danger">
+          <span data-icon="trash" data-icon-size="18"></span>
+        </div>
+        <h3 id="confirmModalTitle">删除项目</h3>
+      </div>
+      <button id="btnConfirmModalClose" class="btn btn-ghost btn-sm btn-icon modal-close-btn" title="关闭" aria-label="关闭">
+        <span data-icon="x" data-icon-size="18"></span>
+      </button>
+    </div>
+    <div class="modal-body confirm-modal-body">
+      <div id="confirmModalMessage" class="confirm-message">确定要删除此项目吗？</div>
+      <div id="confirmModalSubtext" class="confirm-subtext">删除后该项目将从列表中移除，本地游戏存档不会受影响。</div>
+    </div>
+    <div class="modal-foot confirm-modal-foot">
+      <button id="btnConfirmModalCancel" class="btn btn-secondary" type="button">取消</button>
+      <button id="btnConfirmModalSubmit" class="btn btn-danger-solid" type="button">
+        <span id="confirmModalBtnIcon" class="btn-icon-svg"><span data-icon="trash" data-icon-size="15"></span></span>
+        <span id="confirmModalSubmitText">确定删除</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script src="gl-matrix.js"></script>
+<script src="core.js"></script>
+<script src="icons.js"></script>
+<script src="map2d.js"></script>
+<script src="height-range.js"></script>
+<script src="view3d.js"></script>
+<script src="slice-preview.js"></script>
+<script src="ui.js"></script>
+<script src="hub.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
