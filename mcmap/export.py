@@ -143,6 +143,7 @@ def export_obj_zip(
     out_zip: str | io.BytesIO,
     model_name: str = "mcmap",
     textures: dict[str, bytes] | None = None,
+    subdivide: int = 1,
 ) -> dict:
     """导出 OBJ + MTL + PNG 到 zip。
 
@@ -154,6 +155,8 @@ def export_obj_zip(
     4. 输出单一 OBJ 模型包。
     """
     all_tris = geom.remove_shared_faces(solid_tris + detail_tris)
+    if subdivide > 1:
+        all_tris = geom.subdivide_quads(all_tris, subdivide)
     all_tris.sort(key=lambda t: t.get("tex", ""))
 
     # 收集所有贴图名（去重）
@@ -247,10 +250,13 @@ def export_obj_zip(
 
 def export_glb(assets, quads: list[dict], model_name: str = "mcmap",
                textures: dict[str, bytes] | None = None,
-               z_up: bool = False) -> tuple[bytes, dict]:
+               z_up: bool = False,
+               subdivide: int = 1) -> tuple[bytes, dict]:
     quads = geom.remove_shared_faces(quads)
     if not quads:
         raise ValueError("选区内没有可导出的面")
+    if subdivide > 1:
+        quads = geom.subdivide_quads(quads, subdivide)
     names = sorted({face["tex"] for face in quads})
     png, uv_map, cols, rows = build_texture_atlas(assets, names, textures=textures)
     return gltf.write_glb(quads, png, uv_map, model_name, z_up=z_up), {

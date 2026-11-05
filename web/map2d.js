@@ -108,6 +108,29 @@ function draw2d() {
     ctx.moveTo(p.x - 11 * dpr, p.y); ctx.lineTo(p.x + 11 * dpr, p.y);
     ctx.moveTo(p.x, p.y - 11 * dpr); ctx.lineTo(p.x, p.y + 11 * dpr);
     ctx.stroke();
+
+    if (Array.isArray(S.info.players)) {
+      ctx.font = `600 ${11 * dpr}px "Segoe UI", "Microsoft YaHei", sans-serif`;
+      for (const pl of S.info.players) {
+        if (pl.dimension && pl.dimension !== 'overworld') continue;
+        const pp = worldToScreen(pl.x, pl.z);
+        ctx.fillStyle = '#f59e0b';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2 * dpr;
+        ctx.beginPath();
+        ctx.arc(pp.x, pp.y, 5.5 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        const label = pl.name || '玩家';
+        const tw = ctx.measureText(label).width;
+        const lx = pp.x + 8 * dpr;
+        const ly = pp.y - 6 * dpr;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+        ctx.fillRect(lx - 4 * dpr, ly - 10 * dpr, tw + 8 * dpr, 15 * dpr);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(label, lx, ly + 1 * dpr);
+      }
+    }
   }
 
   // 已选区块
@@ -265,6 +288,7 @@ function setSelection(cx0, cz0, cx1, cz1) {
   $('z1In').value = (S.sel.cz1 + 1) * CH - 1;
   updateAutoHeight();
   updateBar();
+  if (typeof updateQuickNavOptions === 'function') updateQuickNavOptions();
   draw2d();
   if (S.view === '3d') {
     if (typeof loadMini === 'function') loadMini();

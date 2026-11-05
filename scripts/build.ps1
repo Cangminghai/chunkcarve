@@ -1,6 +1,6 @@
-# scripts/build.ps1 - ChunkCarve 打包构建脚本（One-Folder / onedir 模式）
+﻿# scripts/build.ps1 - ChunkCarve 打包构建脚本（One-Folder / onedir 模式）
 param(
-    [string]$Version = "v1.0.0",
+    [string]$Version = "v1.0.3",
     [switch]$SkipZip,
     [switch]$Verify
 )
@@ -56,33 +56,7 @@ if (Test-Path "dist\ChunkCarve") {
 
 # 3. 执行 PyInstaller 打包
 Write-Host "`n[3/5] 执行 PyInstaller 打包 (onedir 模式)..." -ForegroundColor Yellow
-$buildArgs = @(
-    "-m", "PyInstaller",
-    "--noconfirm",
-    "--onedir",
-    "--windowed",
-    "--name", "ChunkCarve",
-    "--icon", "assets/icon.ico",
-    "--version-file", "scripts/version_info.txt",
-    "--add-data", "web;web",
-    "--add-data", "assets;assets",
-    "--collect-all", "webview",
-    "--collect-all", "pythonnet",
-    "--collect-submodules", "mcmap",
-    "--hidden-import", "webview",
-    "--hidden-import", "webview.platforms.winforms",
-    "--hidden-import", "clr_loader",
-    "--hidden-import", "pythonnet",
-    "--exclude-module", "tkinter",
-    "--exclude-module", "matplotlib",
-    "--exclude-module", "pandas",
-    "--exclude-module", "scipy",
-    "--exclude-module", "PyQt5",
-    "--exclude-module", "PySide6",
-    "desktop.pyw"
-)
-
-& $py $buildArgs
+& $py -m PyInstaller mc3d.spec --noconfirm
 if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller 构建失败，退出码: $LASTEXITCODE"
 }
@@ -90,6 +64,17 @@ if ($LASTEXITCODE -ne 0) {
 $exePath = "dist\ChunkCarve\ChunkCarve.exe"
 if (-not (Test-Path $exePath)) {
     throw "构建完成但未找到可执行文件: $exePath"
+}
+foreach ($docFile in @("README.md", "CHANGELOG.md", "LICENSE", "THIRD_PARTY_LICENSES.md")) {
+    if (Test-Path $docFile) {
+        Copy-Item -Path $docFile -Destination "dist\ChunkCarve\" -Force
+    }
+}
+if (Test-Path "docs\faq.md") {
+    New-Item -ItemType Directory -Path "dist\ChunkCarve\docs" -Force | Out-Null
+    Copy-Item -Path "docs\faq.md" -Destination "dist\ChunkCarve\docs\" -Force
+    Copy-Item -Path "docs\usage.md" -Destination "dist\ChunkCarve\docs\" -Force
+    Copy-Item -Path "docs\export-formats.md" -Destination "dist\ChunkCarve\docs\" -Force
 }
 $exeMb = [math]::Round((Get-Item $exePath).Length / 1MB, 2)
 Write-Host "  ✓ 生成可执行文件: $exePath ($exeMb MB)" -ForegroundColor Green

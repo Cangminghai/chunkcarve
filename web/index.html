@@ -29,7 +29,7 @@
       <div class="splash-logo splash-title">ChunkCarve</div>
       <div class="splash-tagline">取方 · 三千方块，取其一方。</div>
       <div class="splash-tagline">Carve one chunk out of the world.</div>
-      <div class="splash-version">v1.0.0 · Open Source Release</div>
+      <div class="splash-version">v1.0.3 · Open Source Release</div>
     </div>
     <div class="splash-meter">
       <div class="splash-track">
@@ -146,10 +146,19 @@
         <option value="stl">STL · 单色</option>
       </select></label>
       <label class="field" id="sliceColorsField" hidden>AMS 色数<select id="sliceColors"><option value="4">4 色</option><option value="8">8 色</option></select></label>
+      <label class="field" id="sliceSubdivideField">网格细分<select id="sliceSubdivide">
+        <option value="1" selected>标准（2 三角形/面）</option>
+        <option value="8">8×8 微网格（防斜切锯齿·推荐）</option>
+        <option value="16">16×16 像素级（极致平整·耗时较久）</option>
+      </select></label>
+      <div id="subdivideWaitNotice" class="export-alert" role="status" hidden></div>
       <label class="field" id="sliceExportModeField" hidden>范围<select id="sliceExportMode"><option value="batch">全部切片</option><option value="single">当前单片</option><option value="selected">右侧所选切片</option></select></label>
       <div id="decorationExportField">
         <label class="slice-check"><input id="includeDecorations" type="checkbox" checked> 交叉面／贴图装饰（草、火把等）</label>
         <p class="workflow-hint">默认包含；取消勾选可从预览和导出中排除。装饰会生成有厚度的可见轮廓，文件会明显增大；楼梯、台阶和栅栏始终保留。</p>
+      </div>
+      <div id="slicerImportTip" class="slicer-import-tip">
+        <strong>切片软件导入必看：</strong>导入 Bambu Studio / 创想云弹出多色转换窗口时，请务必将<strong>「光滑程度 / 平滑度」调为 0</strong>，否则直角方块边界会被平滑成弯曲弧线。
       </div>
       <p id="sliceFormatHint" class="workflow-hint">GLB 将模型和贴图放在同一文件中。</p>
       <button id="btnSliceExport" class="btn btn-primary" type="button">导出模型</button>
@@ -188,11 +197,25 @@
 
 <footer id="selbar" class="floating-card">
   <div id="dockSummary">
+    <div id="quickNavBar" class="quick-nav-bar" aria-label="快速坐标定位">
+      <span class="nav-badge" title="快速跳转到出生点或玩家位置">定位</span>
+      <select id="navQuickSelect" class="nav-select" aria-label="快捷位置选择">
+        <option value="spawn">出生点</option>
+      </select>
+      <label class="nav-coord"><span>X</span><input id="navXIn" type="number" step="1" placeholder="X" aria-label="目标 X 坐标"></label>
+      <label class="nav-coord"><span>Z</span><input id="navZIn" type="number" step="1" placeholder="Z" aria-label="目标 Z 坐标"></label>
+      <button id="btnNavGo" class="btn btn-secondary btn-sm" type="button" title="平移地图视野到该坐标">跳转</button>
+      <button id="btnNavSelect" class="btn btn-secondary btn-sm" type="button" title="跳转并在该坐标中心框选 3×3 区块">定位并框选</button>
+      <span class="nav-sep"></span>
+    </div>
     <span id="dockSelectionText">未选择</span>
     <span id="dockSizeText" class="mono">—</span>
     <button id="btnDockRange" class="btn btn-sm" type="button" aria-expanded="false" aria-controls="selInfo">
       <span>范围与尺寸</span>
       <span class="dock-range-chevron" data-icon="chevron-down" data-icon-size="14" aria-hidden="true"></span>
+    </button>
+    <button id="btnGoPreview" class="btn btn-primary btn-sm" type="button" title="进入立体模型预览与导出">
+      <span>2 预览 →</span>
     </button>
   </div>
   <div id="selInfo">
@@ -360,10 +383,10 @@
       <span id="loadTxt">载入中</span>
     </div>
     <div id="loadTimeoutHint" class="load-timeout-hint" style="display: none;">
-      <div class="load-timeout-msg">可能是卡死了，请重新打开吧。</div>
+      <div id="loadTimeoutMsg" class="load-timeout-msg">可能是卡死了，请重新打开吧。</div>
       <div class="load-timeout-actions">
-        <button type="button" class="btn-load-reload" onclick="location.reload()">重新载入</button>
-        <button type="button" class="btn-load-cancel" onclick="dismissLoading()">取消等待</button>
+        <button id="btnLoadReload" type="button" class="btn-load-reload" onclick="location.reload()">重新载入</button>
+        <button type="button" class="btn-load-cancel" onclick="dismissLoading()">隐藏等待提示</button>
       </div>
     </div>
   </div>

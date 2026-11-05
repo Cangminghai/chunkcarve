@@ -324,5 +324,60 @@ def full_cube_tris_culled(faces: list[tuple[str, str]],
     return tris
 
 
+def subdivide_quads(quads: list[dict], n: int = 1) -> list[dict]:
+    """将四边形面剖分为 n x n 个微小四边形（保持法线与贴图双线性 UV）。
+
+    用于彻底消灭切片软件导入 GLB/OBJ 时的对角线斜切三角形与颜色锯齿。
+    """
+    if n <= 1 or not quads:
+        return quads
+
+    s = np.linspace(0, 1, n + 1, dtype=np.float32)
+    t = np.linspace(0, 1, n + 1, dtype=np.float32)
+    S, T = np.meshgrid(s, t, indexing="ij")
+    w0 = (1 - S) * (1 - T)
+    w1 = (1 - S) * T
+    w2 = S * T
+    w3 = S * (1 - T)
+
+    idx_i, idx_j = np.meshgrid(np.arange(n), np.arange(n), indexing="ij")
+    idx_i = idx_i.ravel()
+    idx_j = idx_j.ravel()
+
+    r0, c0 = idx_i, idx_j
+    r1, c1 = idx_i, idx_j + 1
+    r2, c2 = idx_i + 1, idx_j + 1
+    r3, c3 = idx_i + 1, idx_j
+
+    res: list[dict] = []
+    for q in quads:
+        v = q.get("verts")
+        uv = q.get("uvs")
+        if not v or len(v) != 4:
+            res.append(q)
+            continue
+
+        v0, v1, v2, v3 = np.asarray(v, dtype=np.float32)
+        u0, u1, u2, u3 = np.asarray(uv, dtype=np.float32)
+
+        P = (w0[..., None] * v0 + w1[..., None] * v1 +
+             w2[..., None] * v2 + w3[..., None] * v3)
+        UV = (w0[..., None] * u0 + w1[..., None] * u1 +
+              w2[..., None] * u2 + w3[..., None] * u3)
+
+        P_cells = np.stack([P[r0, c0], P[r1, c1], P[r2, c2], P[r3, c3]], axis=1)
+        UV_cells = np.stack([UV[r0, c0], UV[r1, c1], UV[r2, c2], UV[r3, c3]], axis=1)
+
+        tex = q.get("tex")
+        for k in range(len(idx_i)):
+            res.append({
+                "verts": P_cells[k].tolist(),
+                "uvs": UV_cells[k].tolist(),
+                "tex": tex,
+            })
+    return res
+
+
 __all__ = ["element_to_tris", "geometry_to_tris", "collect_textures",
-           "full_cube_tris", "full_cube_tris_culled", "remove_shared_faces"]
+           "full_cube_tris", "full_cube_tris_culled", "remove_shared_faces",
+           "subdivide_quads"]

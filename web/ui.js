@@ -276,34 +276,28 @@ async function saveExport(kind = 'glb') {
   if (S.y0 !== null) q.set('y0', S.y0);
   if (S.y1 !== null) q.set('y1', S.y1);
   if (kind === '3mf') q.set('colors', $('sliceColors').value);
-  if (kind === 'glb' || kind === 'obj') q.set('decorations', S.includeDecorations ? '1' : '0');
+  let subdiv = 1;
+  if (kind === 'glb' || kind === 'obj') {
+    q.set('decorations', S.includeDecorations ? '1' : '0');
+    subdiv = parseInt($('sliceSubdivide')?.value || '1', 10) || 1;
+    if (subdiv > 1) q.set('subdivide', String(subdiv));
+  }
   const b = S.box;
   const xz = b
     ? `${b.x0}-${b.x1}_${b.z0}-${b.z1}`
     : `${r.cx0 * CH}-${r.cx1 * CH - 1}_${r.cz0 * CH}-${r.cz1 * CH - 1}`;
   const ext = kind === 'obj' ? 'zip' : kind;
   const prefix = 'MC切片';
-  const suggestedName = `${prefix}_${xz}.${ext}`;
+  const subTag = subdiv > 1 ? `_sub${subdiv}` : '';
+  const suggestedName = `${prefix}_${xz}${subTag}.${ext}`;
 
-  // 1) 先弹系统"另存为"（必须在点击手势内；用户取消则中止）
-  let handle = null;
-  if (window.showSaveFilePicker) {
-    try {
-      handle = await window.showSaveFilePicker({
-        suggestedName,
-        types: [{
-          description: kind === 'glb' ? 'GLB 内嵌贴图模型' : kind === 'obj' ? 'OBJ 多色模型包' : kind === '3mf' ? 'AMS 多色 3MF' : 'STL 模型',
-          accept: { 'application/octet-stream': ['.' + ext] },
-        }],
-      });
-    } catch (e) {
-      if (e && e.name === 'AbortError') return;   // 用户点了取消
-      handle = null;                               // 其它失败 → 走传统下载
-    }
-  }
-
-  // 2) 生成 + 写入所选位置
-  setLoading(true, '正在生成导出文件…');
+  // 先在后台完整生成模型文件，确认无误后再弹出保存窗口，彻底杜绝生成失败留下 0 字节空文件
+  const loadMsg = subdiv >= 16
+    ? '正在生成 16×16 像素级细分模型（面数×256，耗时较久请耐心等待）'
+    : subdiv > 1
+      ? `正在生成 ${subdiv}×${subdiv} 微网格细分模型`
+      : '正在生成导出文件…';
+  setLoading(true, loadMsg, { longExport: subdiv > 1 });
   if (kind === '3mf') {
     $('exportStatus').style.display = 'block';
     $('exportStatus').textContent = '正在生成基础分色 3MF…';
@@ -316,7 +310,11 @@ async function saveExport(kind = 'glb') {
       throw new Error(msg);
     }
     const blob = await resp.blob();
-    const native = !handle && await saveNativeBlob(blob, suggestedName);
+    if (!blob || blob.size === 0) {
+      throw new Error('生成的导出文件为空');
+    }
+
+    const native = await saveNativeBlob(blob, suggestedName);
     if (native && native.cancelled) {
       showErr('已取消保存。', 'info');
       if (kind === '3mf') $('exportStatus').textContent = '已取消保存。';
@@ -324,21 +322,41 @@ async function saveExport(kind = 'glb') {
     }
     if (native && native.saved) {
       showErr('已保存：' + suggestedName, 'success');
-    } else if (handle) {
-      const w = await handle.createWritable();
-      await w.write(blob);
-      await w.close();
-      showErr('已保存：' + (handle.name || suggestedName), 'success');
     } else {
-      const a = document.createElement('a');
-      const u = URL.createObjectURL(blob);
-      a.href = u;
-      a.download = suggestedName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(u), 5000);
-      showErr('已生成下载：' + suggestedName, 'success');
+      let savedByPicker = false;
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName,
+            types: [{
+              description: kind === 'glb' ? 'GLB 内嵌贴图模型' : kind === 'obj' ? 'OBJ 多色模型包' : kind === '3mf' ? 'AMS 多色 3MF' : 'STL 模型',
+              accept: { 'application/octet-stream': ['.' + ext] },
+            }],
+          });
+          const w = await handle.createWritable();
+          await w.write(blob);
+          await w.close();
+          showErr('已保存：' + (handle.name || suggestedName), 'success');
+          savedByPicker = true;
+        } catch (e) {
+          if (e && e.name === 'AbortError') {
+            showErr('已取消保存。', 'info');
+            return;
+          }
+          savedByPicker = false;
+        }
+      }
+      if (!savedByPicker) {
+        const a = document.createElement('a');
+        const u = URL.createObjectURL(blob);
+        a.href = u;
+        a.download = suggestedName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(u), 5000);
+        showErr('已生成下载：' + suggestedName, 'success');
+      }
     }
     if (kind === '3mf') $('exportStatus').textContent = `已生成 ${resp.headers.get('X-Colors')} 色 3MF。`;
   } catch (e) {
@@ -355,21 +373,46 @@ let sliceExporting = false;
 
 function updateExportOptions() {
   const format = $('sliceFormat').value;
+  const isTextured = ['glb', 'obj'].includes(format);
+  const subdiv = parseInt($('sliceSubdivide')?.value || '1', 10) || 1;
   $('exportTitle').textContent = '导出当前模型';
   $('sliceFormat').closest('label').hidden = false;
   $('sliceExportModeField').hidden = true;
   $('btnSliceExport').textContent = '导出模型';
   $('sliceColorsField').hidden = format !== '3mf';
-  $('decorationExportField').hidden = !['glb', 'obj'].includes(format);
+  if ($('sliceSubdivideField')) $('sliceSubdivideField').hidden = !isTextured;
+  $('decorationExportField').hidden = !isTextured;
+  if ($('slicerImportTip')) $('slicerImportTip').hidden = !isTextured;
+  const waitEl = $('subdivideWaitNotice');
+  if (waitEl) {
+    if (!isTextured || subdiv <= 1) {
+      waitEl.hidden = true;
+      waitEl.className = 'export-alert';
+      waitEl.textContent = '';
+    } else if (subdiv >= 16) {
+      waitEl.hidden = false;
+      waitEl.className = 'export-alert warn';
+      waitEl.innerHTML = '<strong>⏳ 16×16 长等待提醒：</strong>16×16 像素级细分会将网格面数放大 <strong>256 倍</strong>！中等或较大选区导出通常需要<strong>数十秒至数分钟</strong>，生成文件也较大。点击导出后请耐心等待，切勿刷新关闭；若不想久等建议改选 <strong>8×8 微网格</strong>。';
+    } else {
+      waitEl.hidden = false;
+      waitEl.className = 'export-alert info';
+      waitEl.innerHTML = '<strong>⏱ 预计耗时提醒：</strong>8×8 微网格会将面数放大 64 倍，导出一般耗时数秒至十几秒，即可消除绝大多数斜切锯齿（推荐日常使用）。';
+    }
+  }
   $('btnSliceExport').disabled = false;
-  $('sliceFormatHint').textContent = {
+  const baseHint = {
     glb: 'GLB 将模型和贴图保存在同一个文件中。',
     obj: 'OBJ 保留材质和贴图。请将 ZIP 解压后导入，并保持 OBJ、MTL、PNG 在同一目录。',
     stl: 'STL 只包含单色几何，不保存颜色。',
     '3mf': '3MF 将方块代表色归并为所选颜色数量。',
   }[format];
+  $('sliceFormatHint').textContent = (isTextured && subdiv > 1)
+    ? `${baseHint} 当前开启 ${subdiv}×${subdiv} 像素微网格细分，可消除切片软件多色分界处的斜切三角形锯齿。`
+    : baseHint;
 }
 $('sliceFormat').onchange = updateExportOptions;
+if ($('sliceSubdivide')) $('sliceSubdivide').onchange = updateExportOptions;
+updateExportOptions();
 $('includeDecorations').onchange = () => {
   S.includeDecorations = $('includeDecorations').checked;
   if (S.view === '3d') schedule3d(true);
@@ -525,7 +568,132 @@ $('btnDockRange').onclick = () => {
   $('selbar').classList.toggle('range-open', expanded);
   syncLayout();
 };
+if ($('btnGoPreview')) {
+  $('btnGoPreview').onclick = () => setStep('preview');
+}
 new MutationObserver(updateDockSummary).observe($('selInfo'), { childList: true, subtree: true, characterData: true });
+
+/* ---------- 选区底部快捷坐标定位（出生点 / 玩家位置 / 自定义 X,Z） ---------- */
+function updateQuickNavOptions() {
+  const sel = $('navQuickSelect');
+  if (!sel) return;
+  const prevVal = sel.value;
+  sel.innerHTML = '';
+
+  if (S.info && S.info.spawn) {
+    const sp = S.info.spawn;
+    const opt = document.createElement('option');
+    opt.value = 'spawn';
+    opt.dataset.x = sp.x;
+    opt.dataset.z = sp.z;
+    opt.textContent = `出生点 (${sp.x}, ${sp.z})`;
+    sel.appendChild(opt);
+  }
+
+  const players = (S.info && Array.isArray(S.info.players)) ? S.info.players : [];
+  players.forEach((p, idx) => {
+    const opt = document.createElement('option');
+    opt.value = `player_${idx}`;
+    opt.dataset.x = p.x;
+    opt.dataset.z = p.z;
+    const dimTag = p.dimension === 'the_nether' ? ' [下界]' : p.dimension === 'the_end' ? ' [末地]' : '';
+    opt.textContent = `${p.name}${dimTag} (${p.x}, ${p.z})`;
+    sel.appendChild(opt);
+  });
+
+  if (S.sel) {
+    const cx = Math.round(((S.sel.cx0 + S.sel.cx1 + 1) * CH) / 2);
+    const cz = Math.round(((S.sel.cz0 + S.sel.cz1 + 1) * CH) / 2);
+    const opt = document.createElement('option');
+    opt.value = 'selection';
+    opt.dataset.x = cx;
+    opt.dataset.z = cz;
+    opt.textContent = `当前选区 (${cx}, ${cz})`;
+    sel.appendChild(opt);
+  }
+
+  const customOpt = document.createElement('option');
+  customOpt.value = 'custom';
+  customOpt.textContent = '自定义坐标';
+  sel.appendChild(customOpt);
+
+  if (prevVal && Array.from(sel.options).some(o => o.value === prevVal)) {
+    sel.value = prevVal;
+  } else if (sel.options.length > 0) {
+    sel.selectedIndex = 0;
+  }
+
+  const cur = sel.selectedOptions[0];
+  if (cur && cur.dataset.x !== undefined && $('navXIn') && $('navZIn')) {
+    if (!$('navXIn').matches(':focus')) $('navXIn').value = cur.dataset.x;
+    if (!$('navZIn').matches(':focus')) $('navZIn').value = cur.dataset.z;
+  }
+}
+
+function navigateToCoords(tx, tz, selectChunks = false) {
+  const x = Math.round(Number(tx));
+  const z = Math.round(Number(tz));
+  if (!Number.isFinite(x) || !Number.isFinite(z)) {
+    showErr('请输入有效的 X、Z 整数坐标');
+    return;
+  }
+  if ($('navXIn')) $('navXIn').value = x;
+  if ($('navZIn')) $('navZIn').value = z;
+
+  S.gx = x;
+  S.gz = z;
+  S.span = clamp(S.span, 96, 384);
+  if ($('iSpan')) $('iSpan').textContent = `${Math.round(S.span)} 格`;
+
+  if (selectChunks) {
+    const cx = floorDiv(x, CH);
+    const cz = floorDiv(z, CH);
+    if (typeof resetAutoHeight === 'function') resetAutoHeight();
+    setSelection(cx - 1, cz - 1, cx + 1, cz + 1);
+    if (typeof showNotice === 'function') {
+      showNotice(`📍 已定位至 (${x}, ${z}) 并框选周围 3×3 区块`);
+    }
+  } else {
+    draw2d();
+    if (typeof showNotice === 'function') {
+      showNotice(`📍 视野已跳转至 (${x}, ${z})`);
+    }
+  }
+  requestTile(true);
+}
+
+if ($('navQuickSelect')) {
+  $('navQuickSelect').onchange = () => {
+    const opt = $('navQuickSelect').selectedOptions[0];
+    if (opt && opt.dataset.x !== undefined && opt.dataset.z !== undefined) {
+      navigateToCoords(Number(opt.dataset.x), Number(opt.dataset.z), false);
+    }
+  };
+}
+if ($('btnNavGo')) {
+  $('btnNavGo').onclick = () => {
+    navigateToCoords(parseFloat($('navXIn')?.value), parseFloat($('navZIn')?.value), false);
+  };
+}
+if ($('btnNavSelect')) {
+  $('btnNavSelect').onclick = () => {
+    navigateToCoords(parseFloat($('navXIn')?.value), parseFloat($('navZIn')?.value), true);
+  };
+}
+for (const nid of ['navXIn', 'navZIn']) {
+  const el = $(nid);
+  if (el) {
+    el.addEventListener('input', () => {
+      if ($('navQuickSelect')) $('navQuickSelect').value = 'custom';
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        navigateToCoords(parseFloat($('navXIn')?.value), parseFloat($('navZIn')?.value), false);
+      }
+    });
+  }
+}
 
 window.addEventListener('keydown', e => {
   const formInput = ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable;

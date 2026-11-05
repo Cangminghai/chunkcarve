@@ -777,6 +777,7 @@ function updateWorldInfoUI() {
   if ($('iChunk')) {
     $('iChunk').textContent = `${floorDiv(S.info.spawn.x, CH)}, ${floorDiv(S.info.spawn.z, CH)}`;
   }
+  if (typeof updateQuickNavOptions === 'function') updateQuickNavOptions();
 }
 
 function renderSpawnPointDefault() {
@@ -961,7 +962,7 @@ function bindHubEvents() {
 
       const proj = {
         id: pid,
-        name: (existing && !editingProjectId) ? (existing.name || name) : name,
+        name: name,
         modpack: modpackPath,
         world: selectedSavePath,
         jar: jarPath || undefined,

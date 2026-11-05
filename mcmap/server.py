@@ -27,7 +27,7 @@ from PIL import Image
 from . import nbt, palette, render, texture, voxel, vanilla, geom, export, config, multicolor, height_range, decorations
 
 ROOT = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-VERSION = "ChunkCarve/1.0.0"
+VERSION = "ChunkCarve/1.0.3"
 APPDIR = config.APPDIR   # 打包后在 exe 旁；否则=项目根目录
 DATA_DIR = os.path.join(APPDIR, "data", "world")
 REGION_DIR = os.path.join(DATA_DIR, "region")
@@ -61,7 +61,7 @@ RUNTIME_BUILD_ID = _runtime_build_id()
 
 
 def capabilities() -> dict:
-    return {"service": "chunkcarve", "api_revision": API_REVISION,
+    return {"service": "chunkcarve", "version": VERSION, "api_revision": API_REVISION,
             "build_id": RUNTIME_BUILD_ID, "app_dir": os.path.realpath(APPDIR),
             "features": ["selection", "preview"]}
 
@@ -105,13 +105,19 @@ def _scan_mod_namespaces(jar_path: str) -> list[str]:
         return []
 
 
-def _init_vanilla():
-    global _vanilla_assets
+_loaded_vanilla_key: tuple[str, str] | None = None
+
+
+def _init_vanilla(force: bool = False):
+    global _vanilla_assets, _loaded_vanilla_key
     if not _VANILLA_JAR or not os.path.exists(_VANILLA_JAR):
+        return
+    mods_dir = _MODS_DIR if _MODS_DIR and os.path.isdir(_MODS_DIR) else ""
+    key = (os.path.realpath(_VANILLA_JAR), os.path.realpath(mods_dir) if mods_dir else "")
+    if not force and _vanilla_assets is not None and _loaded_vanilla_key == key:
         return
     try:
         va = vanilla.VanillaAssets(_VANILLA_JAR)
-        mods_dir = _MODS_DIR if _MODS_DIR and os.path.isdir(_MODS_DIR) else ""
         if mods_dir:
             instance_dir = os.path.dirname(mods_dir)
             # 1. 扫描材质包/资源包 resourcepacks/，优先加载（最高优先级）
@@ -144,6 +150,7 @@ def _init_vanilla():
                         va.add_mod_jar(jp, ns)
 
         _vanilla_assets = va
+        _loaded_vanilla_key = key
         texture.set_assets(va)
     except Exception:
         pass
@@ -236,8 +243,11 @@ def switch_world(path: str, jar: str | None = None, mods: str | None = None) -> 
     if not path or not os.path.isdir(os.path.join(path, "region")):
         raise ValueError("存档目录无效（需要包含 region/ 子目录）")
     with _switch_lock:
+        global _MODS_DIR
+        if mods is None:
+            _MODS_DIR = ""
         cfg = configure(world_dir=path, jar=jar, mods_dir=mods)
-        _init_vanilla()
+        _init_vanilla(force=True)
         global _assets_cache
         with _assets_lock:
             _assets_cache = None
@@ -260,16 +270,18 @@ def open_project(proj: dict) -> dict:
     if not world or not os.path.isdir(os.path.join(world, "region")):
         raise ValueError("项目存档路径无效或缺少 region/ 目录")
     info = switch_world(world, jar or None, mods or None)
+    saved = proj
     try:
         proj["updatedAt"] = time.strftime("%Y-%m-%d %H:%M")
-        config.save_project(proj)
+        saved = config.save_project(proj)
+        pid = saved.get("id") or pid
         if pid:
             config.set_active_project_id(pid)
     except Exception:
         pass
     return {
         "ok": True,
-        "project": proj,
+        "project": saved,
         "world": info,
         "activeId": pid,
     }
@@ -308,6 +320,109 @@ class World:
     def suggested_height(self, cx0, cz0, cx1, cz1):
         return height_range.suggest(REGION_DIR, cx0, cz0, cx1, cz1, self.spawn[1], *self.height_limits())
 
+    def get_players(self) -> list[dict]:
+        """解析存档内单人及多人玩家的最后位置与昵称，供选区快捷定位。"""
+        uuid_names: dict[str, str] = {}
+        if DATA_DIR and os.path.isdir(DATA_DIR):
+            anc = [os.path.abspath(DATA_DIR)]
+            for _ in range(5):
+                parent = os.path.dirname(anc[-1])
+                if not parent or parent == anc[-1]:
+                    break
+                anc.append(parent)
+            for d in anc:
+                if not d or not os.path.isdir(d):
+                    continue
+                uc_forge = os.path.join(d, "usernamecache.json")
+                if os.path.isfile(uc_forge):
+                    try:
+                        with open(uc_forge, "r", encoding="utf-8") as f:
+                            mp = json.load(f)
+                        if isinstance(mp, dict):
+                            for k, v in mp.items():
+                                if isinstance(k, str) and isinstance(v, str) and v:
+                                    uuid_names[k.lower().replace("-", "")] = v
+                    except Exception:
+                        pass
+                uc_mc = os.path.join(d, "usercache.json")
+                if os.path.isfile(uc_mc):
+                    try:
+                        with open(uc_mc, "r", encoding="utf-8") as f:
+                            arr = json.load(f)
+                        if isinstance(arr, list):
+                            for item in arr:
+                                if isinstance(item, dict) and item.get("uuid") and item.get("name"):
+                                    uuid_names[str(item["uuid"]).lower().replace("-", "")] = str(item["name"])
+                    except Exception:
+                        pass
+
+        def _parse_dim(raw_dim) -> str:
+            if raw_dim in (None, 0, "0", "minecraft:overworld"):
+                return "overworld"
+            if raw_dim in (-1, "-1", "minecraft:the_nether"):
+                return "the_nether"
+            if raw_dim in (1, "1", "minecraft:the_end"):
+                return "the_end"
+            return str(raw_dim)
+
+        players: list[dict] = []
+        seen_coords: dict[tuple[int, int, int, str], int] = {}
+
+        # 1. playerdata/*.dat（带 UUID，可匹配真实玩家昵称）
+        pd_dir = os.path.join(DATA_DIR, "playerdata")
+        if os.path.isdir(pd_dir):
+            try:
+                for fn in sorted(os.listdir(pd_dir)):
+                    if not fn.endswith(".dat") or fn.endswith("_old.dat"):
+                        continue
+                    uid_raw = fn[:-4]
+                    uid_clean = uid_raw.lower().replace("-", "")
+                    try:
+                        pdat = nbt.load_file(os.path.join(pd_dir, fn))
+                        pos = pdat.get("Pos")
+                        if isinstance(pos, (list, tuple)) and len(pos) >= 3:
+                            px, py, pz = int(round(float(pos[0]))), int(round(float(pos[1]))), int(round(float(pos[2])))
+                            dim = _parse_dim(pdat.get("Dimension"))
+                            pname = uuid_names.get(uid_clean) or f"玩家 ({uid_raw[:8]})"
+                            ckey = (px, py, pz, dim)
+                            if ckey not in seen_coords:
+                                seen_coords[ckey] = len(players)
+                                players.append({
+                                    "name": pname,
+                                    "uuid": uid_raw,
+                                    "x": px, "y": py, "z": pz,
+                                    "dimension": dim,
+                                })
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        # 2. level.dat -> Data -> Player（单人主机玩家）
+        sp = (self.level.get("Data", {}) or {}).get("Player")
+        if isinstance(sp, dict):
+            pos = sp.get("Pos")
+            if isinstance(pos, (list, tuple)) and len(pos) >= 3:
+                try:
+                    px, py, pz = int(round(float(pos[0]))), int(round(float(pos[1]))), int(round(float(pos[2])))
+                    dim = _parse_dim(sp.get("Dimension"))
+                    ckey = (px, py, pz, dim)
+                    if ckey in seen_coords:
+                        idx = seen_coords[ckey]
+                        if players[idx]["name"].startswith("玩家 ("):
+                            players[idx]["name"] = f"主玩家 · {players[idx]['name']}"
+                    else:
+                        players.insert(0, {
+                            "name": "存档玩家",
+                            "uuid": "singleplayer",
+                            "x": px, "y": py, "z": pz,
+                            "dimension": dim,
+                        })
+                except Exception:
+                    pass
+
+        return players
+
     def info(self) -> dict:
         regions = 0
         if os.path.isdir(REGION_DIR):
@@ -321,6 +436,7 @@ class World:
             "seed": str(self.seed),
             "spawn": {"x": self.spawn[0], "y": self.spawn[1], "z": self.spawn[2]},
             "spawnChunk": {"cx": self.spawn[0] // 16, "cz": self.spawn[2] // 16},
+            "players": self.get_players(),
             "modded": self.modded,
             "regions": regions,
             "regionDir": REGION_DIR,
@@ -497,12 +613,14 @@ class World:
                          y0: int | None = None, y1: int | None = None,
                          box: tuple[int, int, int, int] | None = None,
                          model_format: str = "obj", include_decorations: bool = False,
+                         subdivide: int = 1,
                          ) -> tuple[bytes, str, dict]:
         """OBJ + MTL + PNG 或内嵌贴图 GLB 导出。
 
         完整方块用真实三面贴图，非完整方块（include_detail=True 时）用
         解析出的真实几何体。返回 (zip bytes, 文件名, 统计)。
         box=(x0,z0,x1,z1) 为方块级精确切片（非整区块）。
+        subdivide>1 时将暴露面正交细分为 subdivide×subdivide 微网格，消除切片软件斜切锯齿。
         """
         n = (cx1 - cx0) * (cz1 - cz0)
         if n <= 0 or n > MAX_VOXEL_CHUNKS:
@@ -510,6 +628,8 @@ class World:
 
         if not np.isfinite(scale) or scale <= 0:
             raise ValueError("比例必须是大于 0 的有限数值")
+        if subdivide < 1 or subdivide > 16:
+            raise ValueError("网格细分倍数必须在 1 到 16 之间")
 
         _y0 = y0 if y0 is not None else render.Y_MIN
         _y1 = y1 if y1 is not None else render.Y_MAX
@@ -566,8 +686,14 @@ class World:
                 if detail_models[state] is None:
                     skipped_decorations += 1
                     continue
-                offset = np.array([bx, by, bz]) * scale
-                detail_instances.append((state, offset))
+                offset = np.array([bx, by, bz], dtype=np.float64) * scale
+                for q in detail_models[state]:
+                    v = (np.asarray(q["verts"], dtype=np.float64) * scale + offset).tolist()
+                    detail_tris.append({
+                        "verts": v,
+                        "uvs": q["uvs"],
+                        "tex": q["tex"],
+                    })
             else:
                 # 完整方块：真实三面贴图 + 面剔除
                 if _vanilla_assets is not None:
@@ -598,15 +724,14 @@ class World:
                     origin=(bx * scale, by * scale, bz * scale))
                 solid_tris.extend(s_tris)
 
-        if detail_instances:
-            detail_tris = decorations.union_model(solid_tris, detail_models, detail_instances, scale)
-            solid_tris = []
         if not solid_tris and not detail_tris:
             raise ValueError("选区内没有可导出的方块")
 
         if model_format == "glb":
             model_name = f"mc_{cx0}_{cz0}_{cx1}_{cz1}"
-            data, stats = export.export_glb(_vanilla_assets, solid_tris + detail_tris, model_name)
+            data, stats = export.export_glb(
+                _vanilla_assets, solid_tris + detail_tris, model_name,
+                subdivide=subdivide)
             stats['skipped_decorations'] = skipped_decorations
             return data, model_name + ".glb", stats
 
@@ -615,7 +740,8 @@ class World:
         os.makedirs(os.path.dirname(zip_path), exist_ok=True)
         stats = export.export_obj_zip(
             _vanilla_assets, solid_tris, detail_tris, scale, zip_path,
-            model_name=f"mc_{cx0}_{cz0}_{cx1}_{cz1}")
+            model_name=f"mc_{cx0}_{cz0}_{cx1}_{cz1}",
+            subdivide=subdivide)
         stats['skipped_decorations'] = skipped_decorations
         with open(zip_path, "rb") as f:
             data = f.read()
@@ -1198,9 +1324,11 @@ class Handler(BaseHTTPRequestHandler):
         y0 = int(q["y0"]) if "y0" in q and q["y0"] != "" else None
         y1 = int(q["y1"]) if "y1" in q and q["y1"] != "" else None
         box = self._box(q)
+        subdivide = int(q.get("subdivide", 1)) if q.get("subdivide", "") != "" else 1
         data, fname, stats = WORLD.export_obj_voxel(
             cx0, cz0, cx1, cz1, scale, include_detail, y0, y1, box,
-            model_format=model_format, include_decorations=q.get('decorations', '0') == '1')
+            model_format=model_format, include_decorations=q.get('decorations', '0') == '1',
+            subdivide=subdivide)
         ctype = "model/gltf-binary" if model_format == "glb" else "application/zip"
         self._send(200, data, ctype, {
             "Content-Disposition": f'attachment; filename="{fname}"',

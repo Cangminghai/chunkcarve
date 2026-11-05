@@ -18,6 +18,7 @@
       `${floorDiv(S.info.spawn.x, CH)}, ${floorDiv(S.info.spawn.z, CH)}`;
     S.gx = S.info.spawn.x;
     S.gz = S.info.spawn.z;
+    if (typeof updateQuickNavOptions === 'function') updateQuickNavOptions();
   } catch (e) {
     console.error(e);
   } finally {

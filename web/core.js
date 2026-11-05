@@ -85,7 +85,20 @@ const floorDiv = (a, b) => Math.floor(a / b);
 
 let firstLoad = true;
 let loadingTimeoutTimer = null;
+let loadingElapsedTimer = null;
+let loadingBaseTxt = '';
 const LOADING_TIMEOUT_MS = 15000; // 15秒超时提醒（10~20秒区间）
+
+function clearLoadingTimers() {
+  if (loadingTimeoutTimer) {
+    clearTimeout(loadingTimeoutTimer);
+    loadingTimeoutTimer = null;
+  }
+  if (loadingElapsedTimer) {
+    clearInterval(loadingElapsedTimer);
+    loadingElapsedTimer = null;
+  }
+}
 
 function dismissLoading() {
   S.loading = 0;
@@ -93,21 +106,39 @@ function dismissLoading() {
   if (el) el.classList.add('hide');
   const hint = $('loadTimeoutHint');
   if (hint) hint.style.display = 'none';
-  if (loadingTimeoutTimer) {
-    clearTimeout(loadingTimeoutTimer);
-    loadingTimeoutTimer = null;
-  }
+  clearLoadingTimers();
 }
 
-function setLoading(on, txt) {
+function setLoading(on, txt, opts = {}) {
   S.loading += on ? 1 : -1;
   if (S.loading < 0) S.loading = 0;
   const el = $('loading');
   const hint = $('loadTimeoutHint');
+  const timeoutMsg = $('loadTimeoutMsg');
+  const reloadBtn = $('btnLoadReload');
   if (S.loading > 0) {
     el.classList.remove('hide');
     el.classList.toggle('mini', !firstLoad);
-    if (txt) $('loadTxt').textContent = txt;
+    if (txt) {
+      loadingBaseTxt = txt;
+      $('loadTxt').textContent = txt;
+    }
+    const isLongExport = Boolean(opts && opts.longExport);
+    if (timeoutMsg) {
+      timeoutMsg.textContent = isLongExport
+        ? '高密度细分模型面数庞大，后台正在全力生成与压缩中，请耐心等待，切勿刷新或关闭窗口…'
+        : '可能是卡死了，请重新打开吧。';
+    }
+    if (reloadBtn) reloadBtn.style.display = isLongExport ? 'none' : '';
+    if (isLongExport) {
+      if (loadingElapsedTimer) clearInterval(loadingElapsedTimer);
+      const startedAt = Date.now();
+      loadingElapsedTimer = setInterval(() => {
+        if (S.loading <= 0) return;
+        const sec = Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
+        $('loadTxt').textContent = `${loadingBaseTxt}（已耗时 ${sec}s）`;
+      }, 1000);
+    }
     if (!loadingTimeoutTimer) {
       if (hint) hint.style.display = 'none';
       loadingTimeoutTimer = setTimeout(() => {
@@ -121,10 +152,9 @@ function setLoading(on, txt) {
     el.classList.add('hide');
     firstLoad = false;
     if (hint) hint.style.display = 'none';
-    if (loadingTimeoutTimer) {
-      clearTimeout(loadingTimeoutTimer);
-      loadingTimeoutTimer = null;
-    }
+    if (timeoutMsg) timeoutMsg.textContent = '可能是卡死了，请重新打开吧。';
+    if (reloadBtn) reloadBtn.style.display = '';
+    clearLoadingTimers();
   }
 }
 

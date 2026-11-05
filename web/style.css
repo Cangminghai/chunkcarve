@@ -186,7 +186,8 @@ body.mode-3d #mode3dSeg { display: flex !important; }
 body.mode-3d #panel { display: none; }
 body:not(.mode-3d) #mode3dSeg { display: none !important; }
 body:not(.mode-3d) #layerSeg { display: flex !important; }
-body[data-step="selection"] #selbar { display: none; }
+body:not([data-step="selection"]) #quickNavBar,
+body:not([data-step="selection"]) #btnGoPreview { display: none !important; }
 body[data-step="selection"] #presetWrap,
 body[data-step="selection"] #exportWrap { display: none !important; }
 .workflow-panel { display: none; }
@@ -2055,13 +2056,46 @@ body[data-step="slices"] #guideWrap { right: calc(var(--slice-sidebar-w) + 32px)
     overflow-y: auto;
   }
 }
-#exportMenu.export-settings { width: 300px; max-width: calc(100vw - 32px); padding: 14px; gap: 12px; }
+#exportMenu.export-settings {
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 76px);
+  overflow-y: auto;
+  padding: 14px;
+  gap: 11px;
+}
 #exportMenu [hidden] { display: none !important; }
 #exportMenu .field { justify-content: space-between; }
-#exportMenu select { max-width: 180px; }
+#exportMenu select { max-width: 215px; }
 #exportMenu .workflow-hint { margin: 0; }
 #exportMenu .btn-primary { background: var(--c-primary) !important; color: #fff !important; justify-content: center !important; }
 #exportMenu .slice-result { margin: 0; padding: 8px; }
+.export-alert {
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--c-text, #0f172a);
+}
+.export-alert.info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+}
+.export-alert.warn {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+.slicer-import-tip {
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #14532d;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
 #selbar { padding: 10px 14px; }
 #dockSummary { display: flex; align-items: center; gap: 12px; min-height: 28px; font-size: 12px; }
 #dockSelectionText { color: var(--c-text-2); }
@@ -2177,4 +2211,74 @@ body[data-step="slices"] #guideWrap { right: calc(var(--slice-sidebar-w) + 32px)
 .hud-notice.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- 选区底部快捷坐标定位栏 ---------- */
+#dockSummary {
+  flex-wrap: wrap;
+}
+.quick-nav-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--c-primary-soft, #eff6ff);
+  color: var(--c-primary, #2563eb);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.nav-select {
+  height: 28px;
+  max-width: 210px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--c-border, #e2e8f0);
+  background: #ffffff;
+  color: var(--c-text, #0f172a);
+  font-size: 12px;
+  outline: none;
+}
+.nav-select:focus {
+  border-color: var(--c-primary, #2563eb);
+}
+.nav-coord {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--c-border, #e2e8f0);
+  background: #ffffff;
+  font-size: 11.5px;
+  color: var(--c-text-3, #64748b);
+  font-family: var(--font-mono, monospace);
+}
+.nav-coord:focus-within {
+  border-color: var(--c-primary, #2563eb);
+}
+.nav-coord input {
+  width: 62px;
+  border: none;
+  background: transparent;
+  color: var(--c-text, #0f172a);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  outline: none;
+}
+.nav-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--c-border, #e2e8f0);
+  margin: 0 2px;
+}
+#btnGoPreview {
+  flex-shrink: 0;
 }
