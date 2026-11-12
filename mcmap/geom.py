@@ -353,7 +353,11 @@ def subdivide_quads(quads: list[dict], n: int = 1) -> list[dict]:
     for q in quads:
         v = q.get("verts")
         uv = q.get("uvs")
-        if not v or len(v) != 4:
+        if v is None or len(v) != 4:
+            res.append(q)
+            continue
+        if np.all(np.asarray(uv) == uv[0]):
+            # Cutout solids already sample one opaque texture pixel per face.
             res.append(q)
             continue
 

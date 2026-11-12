@@ -377,6 +377,8 @@ _DECORATIVE_EXACT = {
     "minecraft:big_dripleaf_stem",
     "minecraft:pink_petals", "minecraft:spore_blossom",
     "minecraft:sculk_vein",
+    "minecraft:amethyst_cluster", "minecraft:large_amethyst_bud",
+    "minecraft:medium_amethyst_bud", "minecraft:small_amethyst_bud",
 }
 
 

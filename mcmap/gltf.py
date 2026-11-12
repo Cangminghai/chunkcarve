@@ -53,8 +53,8 @@ def write_glb(quads: list[dict], png: bytes, uv_map: dict,
     face_normals = np.cross(p1 - p0, p2 - p0)
     lengths = np.linalg.norm(face_normals, axis=1)
 
-    # 剔除初始输入中的零面积退化三角形
-    valid_mask = lengths > 1e-8
+    # 坐标已换算为米，保留 1 mm 方块上的 1/16 像素面。
+    valid_mask = lengths > 1e-12
     if not np.all(valid_mask):
         valid_indices = np.repeat(valid_mask, 3)
         positions = positions[valid_indices]

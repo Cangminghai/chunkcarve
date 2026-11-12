@@ -47,6 +47,7 @@ def printable_quads(geometry, assets, scale: float) -> list[dict]:
     """
     faces = []
     images = {}
+    opaque_pixels = {}
     for element in geometry.elements:
         sheet = any(abs(a - b) < 1e-8 for a, b in zip(element.frm, element.to))
         for face in geom.element_to_tris(element, thicken=False):
@@ -59,6 +60,7 @@ def printable_quads(geometry, assets, scale: float) -> list[dict]:
                 if image.height > image.width:
                     image = image.crop((0, 0, image.width, image.width))
                 images[name] = np.asarray(image)
+                opaque_pixels[name] = np.argwhere(images[name][:, :, 3] >= 128)[:, ::-1]
             faces.append({**face, 'sheet': sheet})
     if not faces:
         return []
@@ -133,10 +135,20 @@ def printable_quads(geometry, assets, scale: float) -> list[dict]:
                     face = faces[label]
                     quad = np.asarray(face['verts'])
                     u, v = quad[1] - quad[0], quad[3] - quad[0]
-                    a = np.clip((vertices - quad[0]) @ u / (u @ u), 0, 1)
-                    b = np.clip((vertices - quad[0]) @ v / (v @ v), 0, 1)
+                    centre = (lo + hi) / 2
+                    centre[axis] -= sign * pitch / 2
+                    a = np.clip((centre - quad[0]) @ u / (u @ u), 0, 1)
+                    b = np.clip((centre - quad[0]) @ v / (v @ v), 0, 1)
                     uv = np.asarray(face['uvs'])
-                    uvs = uv[0] + a[:, None] * (uv[1] - uv[0]) + b[:, None] * (uv[3] - uv[0])
+                    image = images[face['tex']]
+                    size = np.array([image.shape[1], image.shape[0]])
+                    sampled = (uv[0] + a * (uv[1] - uv[0]) + b * (uv[3] - uv[0])) / 16 * size
+                    pixel = np.clip(np.floor(sampled).astype(int), 0, size - 1)
+                    if image[pixel[1], pixel[0], 3] < 128:
+                        pixels = opaque_pixels[face['tex']]
+                        pixel = pixels[np.argmin(np.sum((pixels + .5 - sampled) ** 2, axis=1))]
+                    # Each solid pixel, including its sides, samples an opaque pixel centre.
+                    uvs = np.tile((pixel + .5) / size * 16, (4, 1))
                     result.append({'verts': vertices, 'uvs': uvs, 'tex': face['tex']})
     return result
 
