@@ -27,7 +27,7 @@ from PIL import Image
 from . import nbt, palette, render, texture, voxel, vanilla, geom, export, config, multicolor, height_range, decorations
 
 ROOT = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-VERSION = "ChunkCarve/1.0.3"
+VERSION = "ChunkCarve/1.0.4"
 APPDIR = config.APPDIR   # 打包后在 exe 旁；否则=项目根目录
 DATA_DIR = os.path.join(APPDIR, "data", "world")
 REGION_DIR = config.world_region_dir(DATA_DIR)

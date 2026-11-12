@@ -1,6 +1,6 @@
 """Anvil 区域文件（.mca）读取与区块解码。
 
-面向 1.13+ / 1.18+ 区块结构：
+面向 1.13+ / 1.18+ / 26.3 区块结构：
   sections[].Y                 —— section 的 Y 索引（1.18 起可为负）
   sections[].block_states      —— {palette:[{Name,...}], data:[long...]}
   data 为 compacted long array，值不跨 64 位边界
@@ -11,8 +11,10 @@
 from __future__ import annotations
 
 import os
+import json
 import struct
 from dataclasses import dataclass, field
+from functools import cache
 
 import numpy as np
 
@@ -76,19 +78,35 @@ def _palette_names(palette: list) -> list[str]:
     out = []
     for entry in palette:
         if isinstance(entry, dict):
-            out.append(entry.get("Name", "minecraft:air"))
+            out.append(entry.get("Name", entry.get("id", entry.get("", "minecraft:air"))))
+        elif isinstance(entry, str):
+            out.append(entry)
         else:
             out.append("minecraft:air")
     return out
 
 
+@cache
+def _block_state_defaults() -> dict:
+    """26.3 的简写状态省略默认属性；数据由官方 --reports 生成。"""
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                        "assets", "block-state-defaults-26.3.json")
+    with open(path, encoding="utf-8") as source:
+        return json.load(source)["blocks"]
+
+
 def _palette_properties(palette: list) -> list[dict | None]:
     """提取每个 palette 条目的方块状态属性（Properties）。无属性的返回 None。"""
     out = []
-    for entry in palette:
-        if isinstance(entry, dict):
+    for entry, name in zip(palette, _palette_names(palette)):
+        if isinstance(entry, dict) and "Name" in entry:
             props = entry.get("Properties")
             out.append(props if isinstance(props, dict) else None)
+        elif isinstance(entry, (str, dict)):
+            props = dict(_block_state_defaults().get(name, {}))
+            if isinstance(entry, dict) and isinstance(entry.get("properties"), dict):
+                props.update(entry["properties"])
+            out.append(props or None)
         else:
             out.append(None)
     return out

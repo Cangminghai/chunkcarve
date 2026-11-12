@@ -1,6 +1,6 @@
 ﻿# scripts/build.ps1 - ChunkCarve 打包构建脚本（One-Folder / onedir 模式）
 param(
-    [string]$Version = "v1.0.3",
+    [string]$Version = "v1.0.4",
     [switch]$SkipZip,
     [switch]$Verify
 )

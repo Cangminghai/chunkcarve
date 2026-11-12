@@ -1,6 +1,6 @@
 # ChunkCarve（取方）常见问答（Q&A）与多色 3D 打印避坑指南
 
-本文档汇总了使用 **ChunkCarve v1.0.3** 提取 Minecraft 存档并导入切片软件（Bambu Studio / OrcaSlicer / 创想云 Creality Print 等）进行多色 3D 打印时最常遇到的 10 个问题及标准解决办法。
+本文档汇总了使用 **ChunkCarve v1.0.4** 提取 Minecraft 存档并导入切片软件（Bambu Studio / OrcaSlicer / 创想云 Creality Print 等）进行多色 3D 打印时最常遇到的 10 个问题及标准解决办法。
 
 ---
 
@@ -103,13 +103,13 @@ OBJ 格式本身不能内嵌图片，ChunkCarve 导出的是一个包含 `.obj`�
 2. 从下拉框中手动选中你要渲染的具体整合包名称（如 `元素觉醒1.4.6`）。
 3. 等待下方的 `版本 Jar`、`模组`、`材质包` 三个状态标签完成刷新并列出该整合包专属存档后，再点选存档保存。
 
-**26.1 及之后版本的存档**：Minecraft 已把主世界地形从存档根目录的 `region/` 移到 `dimensions/minecraft/overworld/region/`，根目录没有 `region` 不代表存档损坏。仍请选择包含 `level.dat` 的存档根目录，程序会自动定位地形。ChunkCarve v1.0.3 原始发布包尚未适配此结构；遇到“缺少 region/”请使用包含此兼容修复的版本，保留原存档目录结构。
+**26.1 及之后版本的存档**：Minecraft 已把主世界地形从存档根目录的 `region/` 移到 `dimensions/minecraft/overworld/region/`，根目录没有 `region` 不代表存档损坏。请升级到 **ChunkCarve v1.0.4 或更新版本**，仍选择包含 `level.dat` 的存档根目录，程序会自动定位地形；无需移动或改名存档文件。v1.0.3 原始发布包尚未适配此结构。
 
 ---
 
 ### Q10：Windows 双击无法启动或浏览器访问失败如何排查？
 
-1. **绿色免安装版启动检查**：请确保已将 `ChunkCarve-v1.0.3-win64.zip` **完整解压**，不要在压缩软件内直接双击 `ChunkCarve.exe`，也不要把 `ChunkCarve.exe` 单独移出所在目录（它依赖同目录的 `_internal` 运行库）。
+1. **绿色免安装版启动检查**：请确保已将 `ChunkCarve-v1.0.4-win64.zip` **完整解压**，不要在压缩软件内直接双击 `ChunkCarve.exe`，也不要把 `ChunkCarve.exe` 单独移出所在目录（它依赖同目录的 `_internal` 运行库）。
 2. **报错 `Failed to resolve Python.Runtime.Loader.Initialize`**：这表示程序所需的 `.NET` 组件未能加载。Windows 可能给从网络下载的 ZIP 加上来源安全标记，部分解压工具会把标记传给其中的 DLL，导致 `.NET` 拒绝加载。请先关闭程序，右键**原 ZIP 压缩包** → **「属性」** → 勾选 **「解除锁定」** → **「应用」**，然后**重新解压到一个新文件夹**再运行。
 
    已经解压的用户，也可以在 PowerShell 中执行以下命令（将示例路径替换为实际包含 `ChunkCarve.exe` 和 `_internal` 的程序文件夹）：
