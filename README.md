@@ -111,8 +111,11 @@ ChunkCarve（取方）是一个面向 Minecraft Java 版世界存档的开源观
 ### 方式一：Windows 绿色免安装版（推荐普通玩家）
 
 1. 前往 [Releases 页面](https://github.com/Cangminghai/chunkcarve/releases) 下载 `ChunkCarve-v1.0.3-win64.zip`。
-2. 解压到任意英文或中文路径文件夹（请保持文件夹内 `_internal` 等文件完整，不要单独把 `ChunkCarve.exe` 拖出文件夹）。
-3. 双击 `ChunkCarve.exe` 即可启动桌面窗口（需要 Windows 10/11 自带的 Edge WebView2 运行时）。
+2. 右键下载的 ZIP 压缩包 → **「属性」**。如果底部有 **「解除锁定」**，勾选并点击 **「应用」** 后再解压；没有该选项则直接继续。
+3. 解压到任意英文或中文路径文件夹（请保持文件夹内 `_internal` 等文件完整，不要单独把 `ChunkCarve.exe` 拖出文件夹）。
+4. 双击 `ChunkCarve.exe` 即可启动桌面窗口（需要 Windows 10/11 自带的 Edge WebView2 运行时）。
+
+如果启动时提示 `Failed to resolve Python.Runtime.Loader.Initialize`，请按 [FAQ 的 Windows 启动排查](docs/faq.md#q10windows-双击无法启动或浏览器访问失败如何排查) 解除下载文件的锁定后重试。
 
 ### 方式二：从源码运行（跨平台 / 开发者）
 
