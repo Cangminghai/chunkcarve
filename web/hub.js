@@ -101,7 +101,9 @@ function hideHub() {
   if (hub) {
     hub.classList.remove('on');
     setTimeout(() => {
-      hub.style.display = 'none';
+      if (!hub.classList.contains('on')) {
+        hub.style.display = 'none';
+      }
     }, 250);
   }
 }
@@ -438,7 +440,7 @@ function renderModalSaves(saves) {
   if (!container) return;
 
   if (!saves || saves.length === 0) {
-    container.innerHTML = '<div class="saves-empty-hint">该整合包目录下暂未找到有效存档（需含 region/ 目录）</div>';
+    container.innerHTML = '<div class="saves-empty-hint">该整合包目录下暂未找到含主世界地形的 Java 版存档；请确认选择的实例和存档已完整保存</div>';
     selectedSavePath = '';
     return;
   }

@@ -93,7 +93,7 @@ SETUP_HTML = """<!DOCTYPE html>
   <h1>Minecraft 存档观察器 · 首次运行设置</h1>
   <p class="sub">选择要观察的存档和游戏资源位置（会保存到 exe 同目录的 config.json，之后可随时修改）。</p>
 
-  <div class="row"><label>存档目录（包含 level.dat 与 region/ 的文件夹）</label>
+  <div class="row"><label>存档根目录（包含 level.dat，兼容旧版与 26.1+）</label>
     <div class="line"><input id="world" placeholder="例如 D:\\minecraft\\saves\\我的世界" value="__WORLD__">
       <button onclick="pick('world')">浏览…</button></div>
     <div class="hint">也可以直接把 .minecraft/saves 下的存档文件夹拖进来</div>
@@ -166,9 +166,9 @@ class SetupApi:
         jar = jar or ""
         mods = mods or ""
         if not world or not os.path.isdir(world):
-            return {"ok": False, "msg": "存档目录无效：请选择包含 region/ 的存档文件夹"}
-        if not os.path.isdir(os.path.join(world, "region")):
-            return {"ok": False, "msg": "该目录没有 region/ 子目录，选错了吗？"}
+            return {"ok": False, "msg": "存档目录无效：请选择存档根文件夹"}
+        if not os.path.isdir(config.world_region_dir(world)):
+            return {"ok": False, "msg": "未找到主世界地形，请确认存档已完整保存"}
         try:
             if jar or mods:
                 config.write_config_file(world, jar or None, mods or None)
@@ -307,7 +307,7 @@ def _load_backend(window):
     port = server.DEFAULT_PORT
     if not server_alive(port):
         port = server._free_port(port)
-        if cfg.get("world") and os.path.isdir(os.path.join(cfg["world"], "region")):
+        if cfg.get("world") and os.path.isdir(config.world_region_dir(cfg["world"])):
             server.configure(cfg["world"], cfg.get("jar"), cfg.get("mods"))
         else:
             server.configure()

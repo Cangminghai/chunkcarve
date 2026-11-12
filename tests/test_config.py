@@ -101,6 +101,19 @@ def test_detect_instance(tmp_path):
     assert res["mods"]["count"] == 1
 
 
+def test_detect_instance_skips_save_without_region(tmp_path):
+    inst = tmp_path / "modpack"
+    incomplete = inst / "saves" / "metadata_only"
+    incomplete.mkdir(parents=True)
+    (incomplete / "level.dat").write_bytes(b"")
+    valid = inst / "saves" / "playable"
+    (valid / "region").mkdir(parents=True)
+
+    res = config.detect_instance_saves_and_assets(str(inst))
+
+    assert [s["path"] for s in res["saves"]] == [os.path.realpath(valid)]
+
+
 def test_detect_versions_directory_returns_instance_candidates(tmp_path):
     mc_dir = tmp_path / ".minecraft"
     instance = mc_dir / "versions" / "ElementPack"

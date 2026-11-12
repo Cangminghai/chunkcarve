@@ -122,7 +122,7 @@ ChunkCarve（取方）是一个面向 Minecraft Java 版世界存档的开源观
 环境要求：
 - Python 3.11 或更高版本
 - Windows、Linux 或 macOS
-- 本机装有 Minecraft Java 版客户端与存档（包含 `level.dat` 和 `region/`）
+- 本机装有 Minecraft Java 版客户端与存档（包含 `level.dat`，地形位于旧版的 `region/` 或 26.1+ 的 `dimensions/minecraft/overworld/region/`）
 
 ```powershell
 git clone https://github.com/Cangminghai/chunkcarve.git

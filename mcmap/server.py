@@ -30,7 +30,7 @@ ROOT = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(
 VERSION = "ChunkCarve/1.0.3"
 APPDIR = config.APPDIR   # 打包后在 exe 旁；否则=项目根目录
 DATA_DIR = os.path.join(APPDIR, "data", "world")
-REGION_DIR = os.path.join(DATA_DIR, "region")
+REGION_DIR = config.world_region_dir(DATA_DIR)
 WEB_DIR = os.path.join(ROOT, "web")
 
 
@@ -79,7 +79,7 @@ def configure(world_dir: str | None = None, jar: str | None = None,
     cfg = config.resolve(world=world_dir, jar=jar, mods=mods_dir)
     if cfg["world"]:
         DATA_DIR = cfg["world"]
-        REGION_DIR = os.path.join(DATA_DIR, "region")
+        REGION_DIR = config.world_region_dir(DATA_DIR)
         WORLD = World()   # 重新加载 level.dat
     if cfg["jar"]:
         _VANILLA_JAR = cfg["jar"]
@@ -206,7 +206,8 @@ def list_worlds() -> list[dict]:
             rp = os.path.realpath(path)
         except Exception:
             return
-        if rp in seen or not os.path.isdir(os.path.join(rp, "region")):
+        region = config.world_region_dir(rp)
+        if rp in seen or not os.path.isdir(region):
             return
         seen.add(rp)
         name = os.path.basename(rp.rstrip("\\/")) or rp
@@ -216,7 +217,7 @@ def list_worlds() -> list[dict]:
         except Exception:
             pass
         try:
-            regions = sum(1 for f in os.listdir(os.path.join(rp, "region"))
+            regions = sum(1 for f in os.listdir(region)
                           if f.endswith(".mca"))
         except Exception:
             regions = 0
@@ -240,8 +241,8 @@ _switch_lock = threading.RLock()
 
 def switch_world(path: str, jar: str | None = None, mods: str | None = None) -> dict:
     """切换当前存档及相关资源：原子地 校验 → 重载 → 清渲染缓存 → 持久化到 config.json。"""
-    if not path or not os.path.isdir(os.path.join(path, "region")):
-        raise ValueError("存档目录无效（需要包含 region/ 子目录）")
+    if not path or not os.path.isdir(config.world_region_dir(path)):
+        raise ValueError("存档目录无效（未找到主世界 region 地形目录）")
     with _switch_lock:
         global _MODS_DIR
         if mods is None:
@@ -267,8 +268,8 @@ def open_project(proj: dict) -> dict:
     jar = proj.get("jar")
     mods = proj.get("mods")
     pid = proj.get("id")
-    if not world or not os.path.isdir(os.path.join(world, "region")):
-        raise ValueError("项目存档路径无效或缺少 region/ 目录")
+    if not world or not os.path.isdir(config.world_region_dir(world)):
+        raise ValueError("项目存档路径无效或缺少主世界地形，请在项目中心重新选择存档")
     info = switch_world(world, jar or None, mods or None)
     saved = proj
     try:
@@ -297,10 +298,7 @@ def _cleanup(path: str) -> None:
 
 class World:
     def __init__(self):
-        self.level = {}
-        p = os.path.join(DATA_DIR, "level.dat")
-        if os.path.exists(p):
-            self.level = nbt.load_file(p)
+        self.level = config.read_world_level(DATA_DIR)
         d = self.level.get("Data", {})
         self.name = d.get("LevelName", "world")
         self.version = d.get("Version", {}).get("Name", "?")
@@ -368,8 +366,10 @@ class World:
         players: list[dict] = []
         seen_coords: dict[tuple[int, int, int, str], int] = {}
 
-        # 1. playerdata/*.dat（带 UUID，可匹配真实玩家昵称）
-        pd_dir = os.path.join(DATA_DIR, "playerdata")
+        # 1. players/data/*.dat（26.1+）或 playerdata/*.dat（带 UUID，可匹配真实玩家昵称）
+        pd_dir = os.path.join(DATA_DIR, "players", "data")
+        if not os.path.isdir(pd_dir):
+            pd_dir = os.path.join(DATA_DIR, "playerdata")
         if os.path.isdir(pd_dir):
             try:
                 for fn in sorted(os.listdir(pd_dir)):
@@ -1507,7 +1507,7 @@ if __name__ == "__main__":
     import argparse
 
     ap = argparse.ArgumentParser(description="ChunkCarve · 取方（Minecraft 世界选区与 2.5D/3D 预览）")
-    ap.add_argument("--world", help="存档目录（含 region/ 的文件夹）")
+    ap.add_argument("--world", help="存档根目录（兼容旧版及 26.1+ 地形目录）")
     ap.add_argument("--jar", help="原版版本 jar（versions/<版本>/<版本>.jar）")
     ap.add_argument("--mods", help="模组目录（含 *.jar），用于模组方块贴图")
     ap.add_argument("--port", type=int, help="监听端口（默认 8770，占用时自动 +1）")

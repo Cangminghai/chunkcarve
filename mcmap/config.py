@@ -20,6 +20,28 @@ APPDIR = os.path.dirname(os.path.abspath(sys.executable)) if FROZEN else ROOT
 CONFIG_FILE = os.path.join(APPDIR, "config.json")
 
 
+def world_region_dir(world_dir: str) -> str:
+    """兼容旧版与 26.1+ 主世界目录，优先读取迁移后的地形。"""
+    modern = os.path.join(world_dir, "dimensions", "minecraft", "overworld", "region")
+    return modern if os.path.isdir(modern) else os.path.join(world_dir, "region")
+
+
+def read_world_level(world_dir: str) -> dict:
+    """读取世界元数据，并把新版出生点和独立生成设置映射到原有字段。"""
+    from . import nbt
+
+    path = os.path.join(world_dir, "level.dat")
+    level = nbt.load_file(path) if os.path.isfile(path) else {}
+    data = level.get("Data", {})
+    spawn = data.get("spawn", {}).get("pos")
+    if isinstance(spawn, (list, tuple)) and len(spawn) == 3:
+        data.update(zip(("SpawnX", "SpawnY", "SpawnZ"), spawn))
+    settings = os.path.join(world_dir, "data", "minecraft", "world_gen_settings.dat")
+    if "WorldGenSettings" not in data and os.path.isfile(settings):
+        data["WorldGenSettings"] = nbt.load_file(settings).get("data", {})
+    return level
+
+
 def read_config_file() -> dict:
     if not os.path.isfile(CONFIG_FILE):
         return {}
@@ -86,9 +108,9 @@ def find_version_jar(mc_dir: str, prefer: tuple[str, ...] = ("1.20.1", "1.20", "
 
 
 def find_world_dir(mc_dir: str, prefer: tuple[str, ...] = ("world",)) -> str | None:
-    """在 <mc_dir>/saves/* 中找存档目录（含 region/ 的）。"""
+    """在 <mc_dir>/saves/* 中找有主世界地形的存档目录。"""
     saves = glob.glob(os.path.join(mc_dir, "saves", "*"))
-    saves = [s for s in saves if os.path.isdir(os.path.join(s, "region"))]
+    saves = [s for s in saves if os.path.isdir(world_region_dir(s))]
     for p in prefer:
         for s in saves:
             if os.path.basename(s).lower() == p:
@@ -99,7 +121,7 @@ def find_world_dir(mc_dir: str, prefer: tuple[str, ...] = ("world",)) -> str | N
 def resolve(world: str | None = None, jar: str | None = None, mods: str | None = None) -> dict:
     """解析最终路径。优先级：入参(CLI) > 环境变量 > config.json > 自动探测 > 项目内默认。
 
-    返回 {"world": 存档根目录(含 region/), "jar": 原版版本jar, "mods": 模组目录或 None}
+    返回 {"world": 存档根目录, "jar": 原版版本jar, "mods": 模组目录或 None}
     """
     cfg = read_config_file()
     world = world or os.environ.get("MCMAP_WORLD") or cfg.get("world")
@@ -109,7 +131,7 @@ def resolve(world: str | None = None, jar: str | None = None, mods: str | None =
     # 项目内默认：data/world（老布局，保持兼容；打包后在 exe 旁边找）
     if not world:
         legacy = os.path.join(APPDIR, "data", "world")
-        if os.path.isdir(os.path.join(legacy, "region")):
+        if os.path.isdir(world_region_dir(legacy)):
             world = legacy
 
     # 自动探测：找到一个 .minecraft 目录后补齐 jar / mods / world
@@ -205,10 +227,9 @@ def read_projects() -> list[dict]:
         world_name = "我的世界"
         world_ver = "1.20.1"
         try:
-            from mcmap import nbt
             lp = os.path.join(cfg["world"], "level.dat")
             if os.path.exists(lp):
-                dat = nbt.load_file(lp).get("Data", {}) or {}
+                dat = read_world_level(cfg["world"]).get("Data", {}) or {}
                 world_name = dat.get("LevelName", world_name)
                 world_ver = dat.get("Version", {}).get("Name", world_ver)
         except Exception:
@@ -370,8 +391,6 @@ def detect_modpacks(mc_dirs: list[str] | None = None) -> list[dict]:
 
 def detect_instance_saves_and_assets(target_path: str) -> dict:
     """深度探测指定整合包目录下的存档、材质包、Jar与模组。"""
-    from mcmap import nbt
-
     if not target_path or not os.path.exists(target_path):
         target_path = APPDIR
 
@@ -403,7 +422,7 @@ def detect_instance_saves_and_assets(target_path: str) -> dict:
             if not os.path.isdir(c_dir):
                 continue
 
-            if os.path.isfile(os.path.join(c_dir, "level.dat")) or os.path.isdir(os.path.join(c_dir, "region")):
+            if os.path.isfile(os.path.join(c_dir, "level.dat")) or os.path.isdir(world_region_dir(c_dir)):
                 sub_folders = [c_dir]
             else:
                 try:
@@ -416,8 +435,8 @@ def detect_instance_saves_and_assets(target_path: str) -> dict:
                 if rp in seen_saves or not os.path.isdir(rp):
                     continue
                 lp = os.path.join(rp, "level.dat")
-                reg = os.path.join(rp, "region")
-                if not (os.path.isfile(lp) or os.path.isdir(reg)):
+                reg = world_region_dir(rp)
+                if not os.path.isdir(reg):
                     continue
                 seen_saves.add(rp)
 
@@ -432,7 +451,7 @@ def detect_instance_saves_and_assets(target_path: str) -> dict:
 
                 if os.path.isfile(lp):
                     try:
-                        dat = nbt.load_file(lp).get("Data", {}) or {}
+                        dat = read_world_level(rp).get("Data", {}) or {}
                         s_name = dat.get("LevelName") or s_name
                         v_obj = dat.get("Version", {}) or {}
                         s_ver = v_obj.get("Name", "?")
