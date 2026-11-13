@@ -23,12 +23,12 @@ from mcmap import config, export, geom, gltf, server, vanilla
 
 
 def test_version_metadata_consistency():
-    """验证包版本号、服务端版本标识及 capabilities 描述一致为 1.0.4。"""
-    assert mcmap.__version__ == "1.0.4"
-    assert server.VERSION == "ChunkCarve/1.0.4"
+    """验证包版本号、服务端版本标识及 capabilities 描述一致为 1.0.5。"""
+    assert mcmap.__version__ == "1.0.5"
+    assert server.VERSION == "ChunkCarve/1.0.5"
     caps = server.capabilities()
     assert caps["service"] == "chunkcarve"
-    assert caps["version"] == "ChunkCarve/1.0.4"
+    assert caps["version"] == "ChunkCarve/1.0.5"
     assert caps["features"] == ["selection", "preview"]
 
 

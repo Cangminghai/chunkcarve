@@ -1,6 +1,6 @@
 # ChunkCarve（取方）常见问答（Q&A）与多色 3D 打印避坑指南
 
-本文档汇总了使用 **ChunkCarve v1.0.4** 提取 Minecraft 存档并导入切片软件（Bambu Studio / OrcaSlicer / 创想云 Creality Print 等）进行多色 3D 打印时最常遇到的 10 个问题及标准解决办法。
+本文档汇总了使用 **ChunkCarve v1.0.5** 提取 Minecraft 存档并导入切片软件（Bambu Studio / OrcaSlicer / 创想云 Creality Print 等）进行多色 3D 打印时最常遇到的 11 个问题及标准解决办法。
 
 ---
 
@@ -109,7 +109,7 @@ OBJ 格式本身不能内嵌图片，ChunkCarve 导出的是一个包含 `.obj`�
 
 ### Q10：Windows 双击无法启动或浏览器访问失败如何排查？
 
-1. **绿色免安装版启动检查**：请确保已将 `ChunkCarve-v1.0.4-win64.zip` **完整解压**，不要在压缩软件内直接双击 `ChunkCarve.exe`，也不要把 `ChunkCarve.exe` 单独移出所在目录（它依赖同目录的 `_internal` 运行库）。
+1. **绿色免安装版启动检查**：请确保已将 `ChunkCarve-v1.0.5-win64.zip` **完整解压**，不要在压缩软件内直接双击 `ChunkCarve.exe`，也不要把 `ChunkCarve.exe` 单独移出所在目录（它依赖同目录的 `_internal` 运行库）。
 2. **报错 `Failed to resolve Python.Runtime.Loader.Initialize`**：这表示程序所需的 `.NET` 组件未能加载。Windows 可能给从网络下载的 ZIP 加上来源安全标记，部分解压工具会把标记传给其中的 DLL，导致 `.NET` 拒绝加载。请先关闭程序，右键**原 ZIP 压缩包** → **「属性」** → 勾选 **「解除锁定」** → **「应用」**，然后**重新解压到一个新文件夹**再运行。
 
    已经解压的用户，也可以在 PowerShell 中执行以下命令（将示例路径替换为实际包含 `ChunkCarve.exe` 和 `_internal` 的程序文件夹）：
@@ -122,3 +122,11 @@ OBJ 格式本身不能内嵌图片，ChunkCarve 导出的是一个包含 `.obj`�
 
 3. **WebView2 运行时**：桌面独立窗口依赖 Windows 10/11 系统自带的 Microsoft Edge WebView2。若极少数精简版系统缺失 WebView2，可安装微软官方 WebView2 Runtime，或在源码环境下运行 `py -m mcmap.server` 使用 Chrome / Edge 浏览器访问 `http://127.0.0.1:8770/`。
 4. **提交诊断信息**：如遇异常，可查看程序目录下的 `desktop_error.log`，或在软件左上角存档下拉菜单底部点击 **「复制诊断信息」**，贴到 [GitHub Issues](https://github.com/Cangminghai/chunkcarve/issues) 或 [Discussions](https://github.com/Cangminghai/chunkcarve/discussions) 中反馈。
+
+---
+
+### Q11：紫水晶簇或紫晶芽导入拓竹后为什么变成完整方块，并出现黑边？
+
+1.0.4 发布包遗漏了四种晶体的非完整方块分类，导致透明贴图被放在完整立方体上；装饰轮廓的侧面也可能采样到透明黑色像素。这是程序导出处理的问题，已在 **v1.0.5** 修复。
+
+升级后，从原存档**重新导出 GLB / OBJ**，并保持默认勾选 **「交叉面／贴图装饰」**。晶体会按可见轮廓生成有厚度的模型，侧边使用原贴图中的不透明颜色。旧模型文件不会因升级而自动改变；更改切片软件的平滑度无法恢复旧文件中缺失的晶体轮廓。

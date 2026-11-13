@@ -15,9 +15,9 @@
 
 ChunkCarve（取方）是一个面向 Minecraft Java 版世界存档的开源观察与 3D 打印建模工具。它直接从你本机的游戏存档中读取地形、建筑、原版与模组方块状态，先在 2D 俯视地图中精准定位与框选范围，再通过 2.5D/3D 视图检查细节，并一键导出针对多色 3D 打印深度优化的 `GLB`、`OBJ`、`3MF` 或 `STL` 模型文件。
 
-当前版本为 **v1.0.4**，支持 Minecraft 26.1+ 新存档目录结构，聚焦打磨最核心的两步工作流：**1 选区** 与 **2 预览（含导出）**。界面中的「3 切片」入口目前保留为试验阶段提示。
+当前版本为 **v1.0.5**，修复紫水晶簇与紫晶芽导出为完整方块、透明边缘变黑的问题，并支持 Minecraft 26.1+ 新存档目录结构。工作流聚焦 **1 选区** 与 **2 预览（含导出）**；「3 切片」入口目前保留为试验阶段提示。旧版本已导出的紫水晶 GLB / OBJ 需要从原存档重新导出，详见 [1.0.5 更新公告](docs/release-v1.0.5.md)。
 
-- 📦 **Windows 免安装版下载**：前往 [GitHub Releases](https://github.com/Cangminghai/chunkcarve/releases) 下载最新 `ChunkCarve-v1.0.4-win64.zip`，解压双击 `ChunkCarve.exe` 即可使用。
+- 📦 **Windows 免安装版下载**：前往 [GitHub Releases](https://github.com/Cangminghai/chunkcarve/releases) 下载最新 `ChunkCarve-v1.0.5-win64.zip`，解压双击 `ChunkCarve.exe` 即可使用。
 - 💬 **常见问答与交流反馈**：遇到导入设置或打印问题？请查阅 [`docs/faq.md`](docs/faq.md) 或前往 [GitHub Discussions 常见 Q&A 指南帖](https://github.com/Cangminghai/chunkcarve/discussions/2)。
 
 ---
@@ -68,7 +68,7 @@ ChunkCarve（取方）是一个面向 Minecraft Java 版世界存档的开源观
 
 ---
 
-## 核心特性（v1.0.4）
+## 核心特性（v1.0.5）
 
 - **地图选区与玩家快捷定位**：
   - 支持地形/高度双图层浏览、`Shift + 左键拖拽` 框选区块。
@@ -110,7 +110,7 @@ ChunkCarve（取方）是一个面向 Minecraft Java 版世界存档的开源观
 
 ### 方式一：Windows 绿色免安装版（推荐普通玩家）
 
-1. 前往 [Releases 页面](https://github.com/Cangminghai/chunkcarve/releases) 下载 `ChunkCarve-v1.0.4-win64.zip`。
+1. 前往 [Releases 页面](https://github.com/Cangminghai/chunkcarve/releases) 下载 `ChunkCarve-v1.0.5-win64.zip`。
 2. 右键下载的 ZIP 压缩包 → **「属性」**。如果底部有 **「解除锁定」**，勾选并点击 **「应用」** 后再解压；没有该选项则直接继续。
 3. 解压到任意英文或中文路径文件夹（请保持文件夹内 `_internal` 等文件完整，不要单独把 `ChunkCarve.exe` 拖出文件夹）。
 4. 双击 `ChunkCarve.exe` 即可启动桌面窗口（需要 Windows 10/11 自带的 Edge WebView2 运行时）。
@@ -195,7 +195,7 @@ py -m pip install -r requirements-dev.txt
 py -m pytest -q
 
 # 构建 Windows 独立可执行程序与免安装压缩包
-powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Version v1.0.4
+powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Version v1.0.5
 ```
 
 前端语法检查与贡献指南见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。每次推送将由 GitHub Actions 自动执行多版本 Python 测试、前端 JS 语法校验与 PyInstaller 打包检查。
